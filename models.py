@@ -18,6 +18,7 @@ class form(Base):
     nickname =     Column(String)
     just_finished =Column(Boolean)
     active = Column(Boolean)
+    #editing = Column(Boolean)
 
 
 engine = create_engine('sqlite:///forms.db')

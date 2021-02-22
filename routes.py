@@ -1,8 +1,5 @@
-import requests
-import json
-from flask import Flask, jsonify, flash, redirect,  url_for, make_response, request
 import telebot
-from rabotov_bot.models import form, Base
+from models import form, Base
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 engine = create_engine('sqlite:///forms.db?check_same_thread=False')
@@ -21,9 +18,14 @@ keyboard2.row('ЗАПОЛНИТЬ ЗАЯВКУ')
 keyboard3 = telebot.types.ReplyKeyboardMarkup(True, True)
 keyboard3.row('LIGHT', 'MEDIUM', 'HARD', 'PRO')
 keyboard4 = telebot.types.ReplyKeyboardMarkup(True, True)
-keyboard4.row('Подтвердить', 'Исправить')
-keyboard5 = telebot.types.ReplyKeyboardMarkup(True, True)
-keyboard5.row('Название', 'Обязанности', 'Требования', 'Условия', 'Уровень оплаты', 'Сумма', 'Контакты')
+keyboard4.row('Запустить подбор',) #Исправить
+#keyboard5 = telebot.types.InlineKeyboardMarkup()
+#butn1, butn2, butn3, butn4, bunt5, bunt6, butn7 = telebot.types.InlineKeyboardButton("Название"), telebot.types.InlineKeyboardButton("Обязанности"), telebot.types.InlineKeyboardButton("Требования"), telebot.types.InlineKeyboardButton("Условия"),telebot.types.InlineKeyboardButton("Уровень оплаты"),telebot.types.InlineKeyboardButton("Сумма"), telebot.types.InlineKeyboardButton("Контакты")
+#keyboard5.row = (butn1, butn2, butn3, butn4, bunt5, bunt6, butn7)
+keyboard6 = telebot.types.ReplyKeyboardMarkup(True, True)
+keyboard6.row('ЗАКРЫТЬ ЗАЯВКУ',)
+keyboard7 = telebot.types.ReplyKeyboardMarkup(True, True)
+keyboard7.row('ПРОЙТИ РЕГИСТРАЦИЮ',)
 @bot.message_handler(commands=['start'])
 def get_start_message(message):
     bot.send_message(message.from_user.id, 'Выберите категорию:', reply_markup=keyboard1)
@@ -31,7 +33,8 @@ def get_start_message(message):
 @bot.message_handler(content_types= ['text'])
 def application_form(message):
     if message.text == 'РАБОТАДАТЕЛЬ':
-        bot.send_message(message.from_user.id, 'Не тратьте время на поиск сотрудников. Делегируйте. Рекрутеры займутся этим вопросом за вас.' , reply_markup=keyboard2)
+        bot.send_message(message.from_user.id, 'Не тратьте время на поиск сотрудников. Делегируйте. Рекрутеры займутся этим вопросом за вас.',
+                         reply_markup=keyboard2)
     if message.text == 'ЗАПОЛНИТЬ ЗАЯВКУ':
         session.add(form(user_id=message.from_user.id, vacancy= 'wait'))
         session.commit()
@@ -84,9 +87,10 @@ def application_form(message):
         if message.text == 'LIGHT':
             current_form.pay_level = message.text
             current_form.salary = 0
+            current_form.nickname = 'wait'
             session.commit()
             session.close()
-            bot.send_message(message.from_user.id, 'В соотвествии с выбранным уровнем оплаты, вознаграждения работающему не предусмотрено')
+            bot.send_message(message.from_user.id, 'В соотвествии с выбранным уровнем оплаты, вознаграждения работающему не предусмотрено. Введите ваш никнейм или номер телефон для контакта с работающим')
         else:
             current_form.pay_level = message.text
             current_form.salary = 'wait'
@@ -156,14 +160,27 @@ def application_form(message):
         session.commit()
         session.close()
 
-    elif message.text == 'Подтвердить':
+    elif message.text == 'Запустить подбор':
         form_request = session.query(form).filter_by(user_id=message.from_user.id, active=False).first()
         form_request.active = True
+        bot.send_message(message.from_user.id, 'заявка №{0} {1} добавлена в выдачу. Чтобы удалить заявку введите ЗАКРЫТЬ ЗАЯВКУ'.format(str(form_request.id),form_request.vacancy, ), reply_markup= keyboard6)
         session.commit()
         session.close()
-        bot.send_message(message.from_user.id, 'Вакансия добавлена в базу данных')
+    elif message.text == 'ЗАКРЫТЬ ЗАЯВКУ':
+        form_request = session.query(form).filter_by(user_id=message.from_user.id).first()
+        session.delete(form_request)
+        bot.send_message(message.from_user.id, 'заявка №{0} {1} закрыта. Чтобы добавить новую заявку введите /start'.format(str(form_request.id),form_request.vacancy, ), reply_markup= keyboard6)
+        session.commit()
+        session.close()
+    elif message.text == 'РЕКРУТЕР':
+        bot.send_message(message.from_user.id,
+                         'Заработай больше на поиске персонала. Закрывай заявки в любое время. Делай то, что тебе нравится.',
+                         reply_markup=keyboard7)
 
-    elif message.text == 'Исправить':
-        bot.send_message(message.from_user.id, 'Выберите параметр для исправления', reply_markup=keyboard5)
+
+    #рекрутер
+
 
 bot.polling(none_stop=True, interval=0)
+
+#telebot.types.InlineKeyboardButton("Название"), telebot.types.InlineKeyboardButton("Обязанности"), telebot.types.InlineKeyboardButton("Требования"), telebot.types.InlineKeyboardButton("Условия"),telebot.types.InlineKeyboardButton("Уровень оплаты"),telebot.types.InlineKeyboardButton("Сумма"), telebot.types.InlineKeyboardButton("Контакты")
