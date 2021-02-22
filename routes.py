@@ -1,8 +1,5 @@
-import requests
-import json
-from flask import Flask, jsonify, flash, redirect,  url_for, make_response, request
 import telebot
-from rabotov_bot.models import form, Base
+from models import form, Base
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 engine = create_engine('sqlite:///forms.db?check_same_thread=False')
@@ -14,6 +11,7 @@ session = DBSession()
 
 token = '1697476492:AAE6Qt9iQlA_K1H6qk_aG6UHSoz8hM7ve-U'
 bot = telebot.TeleBot(token)
+
 keyboard1 = telebot.types.ReplyKeyboardMarkup(True, True)
 keyboard1.row('РАБОТАДАТЕЛЬ', 'РЕКРУТЕР')
 keyboard2 = telebot.types.ReplyKeyboardMarkup(True, True)
