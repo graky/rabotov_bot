@@ -20,6 +20,18 @@ class form(Base):
     active = Column(Boolean)
     #editing = Column(Boolean)
 
+class workers(Base):
+    __tablename__ = 'worker'
+    id = Column(Integer, primary_key = True)
+    user_id = Column(Integer)
+    educ_lvl = Column(Integer)
+    test_stage = Column(Integer)
+    first_test_1 = Column(Boolean)
+    first_test_2 = Column(Boolean)
+    first_test_3 = Column(Boolean)
+    first_test_4 = Column(Boolean)
+    first_test_5 = Column(Boolean)
+    first_test_6 = Column(Boolean)
 
 engine = create_engine('sqlite:///forms.db')
 Base.metadata.create_all(engine)
