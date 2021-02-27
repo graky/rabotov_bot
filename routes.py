@@ -148,6 +148,17 @@ def change_true_false(question, workernumb):
 
 @bot.message_handler(commands=['start'])
 def get_start_message(message):
+    worker = session.query(workers).filter_by(user_id = message.from_user.id).first()
+    if worker:
+        session.delete(worker)
+        session.commit()
+        session.close()
+    form_request = session.query(form).filter_by(user_id=message.from_user.id).first()
+    if form_request:
+        session.delete(form_request)
+        session.commit()
+        session.close()
+
     bot.send_message(message.from_user.id, 'Выберите категорию:', reply_markup=keyboard1)
 
 @bot.message_handler(content_types= ['text'])
@@ -220,34 +231,40 @@ def application_form(message):
     elif len(session.query(form).filter_by(user_id = message.from_user.id, salary = 'wait').all()) > 0: #done
         session.close()
         current_form = session.query(form).filter_by(user_id = message.from_user.id, salary = 'wait').first()
-        salary = int(message.text)
-        if current_form.pay_level == 'MEDIUM':
-            if salary > 5000:
-                bot.send_message(message.from_user.id, 'вознаграждение рукретеру уровня MEDIUM от 1 до 5000 руб. Проверьте сумму и повторите отправку.')
-            else:
-                current_form.salary = salary
-                current_form.nickname = 'wait'
-                session.commit()
-                session.close()
-                bot.send_message(message.from_user.id, 'Введите ваш никнейм или номер телефон для контакта с работающим')
-        elif current_form.pay_level == 'HARD':
-            if salary < 5000 or salary >10000:
-                bot.send_message(message.from_user.id, 'вознаграждение рукретеру уровня HARD от 5000 до 10000 руб. Проверьте сумму и повторите отправку.')
-            else:
-                current_form.salary = salary
-                current_form.nickname = 'wait'
-                session.commit()
-                session.close()
-                bot.send_message(message.from_user.id, 'Введите ваш никнейм или номер телефон для контакта с работающим')
-        elif current_form.pay_level == 'PRO':
-            if salary <10000:
-                bot.send_message(message.from_user.id, 'вознаграждение рукретеру уровня PRO от 10000 руб. Проверьте сумму и повторите отправку.')
-            else:
-                current_form.salary = salary
-                current_form.nickname = 'wait'
-                session.commit()
-                session.close()
-                bot.send_message(message.from_user.id, 'Введите ваш никнейм или номер телефон для контакта с работающим')
+        try:
+            salary = int(message.text)
+            salaryflag = True
+        except ValueError:
+            salaryflag = False
+            bot.send_message(message.from_user.id, 'Введите вознаграждение одним числом без букв')
+        if salaryflag:
+            if current_form.pay_level == 'MEDIUM':
+                if salary > 5000:
+                    bot.send_message(message.from_user.id, 'вознаграждение рукретеру уровня MEDIUM от 1 до 5000 руб. Проверьте сумму и повторите отправку.')
+                else:
+                    current_form.salary = salary
+                    current_form.nickname = 'wait'
+                    session.commit()
+                    session.close()
+                    bot.send_message(message.from_user.id, 'Введите ваш никнейм или номер телефон для контакта с работающим')
+            elif current_form.pay_level == 'HARD':
+                if salary < 5000 or salary >10000:
+                    bot.send_message(message.from_user.id, 'вознаграждение рукретеру уровня HARD от 5000 до 10000 руб. Проверьте сумму и повторите отправку.')
+                else:
+                    current_form.salary = salary
+                    current_form.nickname = 'wait'
+                    session.commit()
+                    session.close()
+                    bot.send_message(message.from_user.id, 'Введите ваш никнейм или номер телефон для контакта с работающим')
+            elif current_form.pay_level == 'PRO':
+                if salary <10000:
+                    bot.send_message(message.from_user.id, 'вознаграждение рукретеру уровня PRO от 10000 руб. Проверьте сумму и повторите отправку.')
+                else:
+                    current_form.salary = salary
+                    current_form.nickname = 'wait'
+                    session.commit()
+                    session.close()
+                    bot.send_message(message.from_user.id, 'Введите ваш никнейм или номер телефон для контакта с работающим')
     elif len(session.query(form).filter_by(user_id = message.from_user.id, nickname = 'wait').all()) > 0:
         session.close()
         current_form = session.query(form).filter_by(user_id = message.from_user.id, nickname = 'wait').first()
