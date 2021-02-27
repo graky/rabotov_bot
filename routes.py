@@ -27,8 +27,8 @@ keyboard6 = telebot.types.ReplyKeyboardMarkup(True, True)
 keyboard6.row('ЗАКРЫТЬ ЗАЯВКУ',)
 keyboard7 = telebot.types.ReplyKeyboardMarkup(True, True)
 keyboard7.row('ПРОЙТИ РЕГИСТРАЦИЮ',)
-keyboard7 = telebot.types.ReplyKeyboardMarkup(True, True)
-keyboard7.row('ПРОЙТИ ОБУЧЕНИЕ', 'УЗНАТЬ ОБ ОСТАЛЬНЫХ УРОВНЯХ')
+keyboard11 = telebot.types.ReplyKeyboardMarkup(True, True)
+keyboard11.row('ПРОЙТИ ОБУЧЕНИЕ', 'УЗНАТЬ ОБ ОСТАЛЬНЫХ УРОВНЯХ')
 keyboard8 = telebot.types.ReplyKeyboardMarkup(True, True)
 keyboard8.row('ДАЛЕЕ')
 keyboard9 = telebot.types.ReplyKeyboardMarkup(True, True)
@@ -304,7 +304,7 @@ def application_form(message):
                          '''Твой уровень LIGHT
 Закрой 3 позиции от разных работодателей по заявке уровня LIGHT (без оплаты) и переходи на следующий уровень. 
 ''',
-                         reply_markup=keyboard7)
+                         reply_markup=keyboard11)
     elif message.text == 'ПРОЙТИ ОБУЧЕНИЕ':
         session.add(workers(user_id=message.from_user.id))
         worker = session.query(workers).filter_by(user_id = message.from_user.id).first()
