@@ -32,6 +32,9 @@ class workers(Base):
     first_test_4 = Column(Boolean)
     first_test_5 = Column(Boolean)
     first_test_6 = Column(Boolean)
-
+    second_test_1 = Column(Boolean)
+    second_test_2 = Column(Boolean)
+    second_test_3 = Column(Boolean)
+    second_test_4 = Column(Boolean)
 engine = create_engine('sqlite:///forms.db')
 Base.metadata.create_all(engine)
