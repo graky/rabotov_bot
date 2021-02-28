@@ -12,7 +12,7 @@ session = DBSession()
 reading, writing = False, False
 token = '1697476492:AAE6Qt9iQlA_K1H6qk_aG6UHSoz8hM7ve-U'
 token2 = '1570308085:AAGk6o8oG0nL7fW2071aF3ar54RaEizFPT0'
-bot = telebot.TeleBot(token2)
+bot = telebot.TeleBot(token)
 keyboard1 = telebot.types.ReplyKeyboardMarkup(True, True)
 keyboard1.row('РАБОТАДАТЕЛЬ', 'РЕКРУТЕР')
 keyboard2 = telebot.types.ReplyKeyboardMarkup(True, True)
