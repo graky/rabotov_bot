@@ -11,7 +11,8 @@ session = DBSession()
 #('LIGHT (бесплатно)', 'MEDIUM (до 5000 руб.)', 'HARD (от 5000 до 10000 руб.)', 'PRO (выше 10000 руб.)')
 reading, writing = False, False
 token = '1697476492:AAE6Qt9iQlA_K1H6qk_aG6UHSoz8hM7ve-U'
-bot = telebot.TeleBot(token)
+token2 = '1570308085:AAGk6o8oG0nL7fW2071aF3ar54RaEizFPT0'
+bot = telebot.TeleBot(token2)
 keyboard1 = telebot.types.ReplyKeyboardMarkup(True, True)
 keyboard1.row('РАБОТАДАТЕЛЬ', 'РЕКРУТЕР')
 keyboard2 = telebot.types.ReplyKeyboardMarkup(True, True)
@@ -304,11 +305,18 @@ def application_form(message):
         session.commit()
         session.close()
     elif message.text == 'ЗАКРЫТЬ ЗАЯВКУ':
-        form_request = session.query(form).filter_by(user_id=message.from_user.id).first()
-        session.delete(form_request)
-        bot.send_message(message.from_user.id, 'заявка №{0} {1} закрыта. Чтобы добавить новую заявку введите /start'.format(str(form_request.id),form_request.vacancy, ), reply_markup= keyboard6)
-        session.commit()
-        session.close()
+        form_request = session.query(form).filter_by(user_id=message.from_user.id).all()
+        if len(form_request) >0:
+            form_request = session.query(form).filter_by(user_id=message.from_user.id).first()
+            session.delete(form_request)
+            bot.send_message(message.from_user.id, 'заявка №{0} {1} закрыта. Чтобы добавить новую заявку введите /start'.format(str(form_request.id),form_request.vacancy, ))
+            session.commit()
+            session.close()
+        else:
+            bot.send_message(message.from_user.id,
+                             'Нет активных заявок')
+
+
 
     elif message.text == 'РЕКРУТЕР':
         bot.send_message(message.from_user.id,
@@ -385,12 +393,6 @@ def application_form(message):
         worker = session.query(workers).filter_by(user_id=message.from_user.id).first()
         worker.educ_lvl = 6
         worker.test_stage = 1
-        worker.first_test_1 = False
-        worker.first_test_2 = False
-        worker.first_test_3 = False
-        worker.first_test_4 = False
-        worker.first_test_5 = False
-        worker.first_test_6 = False
         session.commit()
         session.close()
         bot.send_message(message.from_user.id, '''Вопрос 1. Чтобы отметить вариант ответа как правильный нажмите на крестик и ждите когда он изменится на галочку. Для подтверждение вариантов ответа нажмите кнопку "Далее" 
@@ -427,17 +429,20 @@ def get_callback(call):
     elif call.data == 'Accept' and session.query(workers).filter_by(user_id=call.from_user.id).first().test_stage == 1:
         worker = session.query(workers).filter_by(user_id=call.from_user.id).first()
         worker.test_stage = 2
-        worker.second_test_1 = False
-        worker.second_test_2 = False
-        worker.second_test_3 = False
-        worker.second_test_4 = False
         session.commit()
         session.close()
         bot.send_message(call.from_user.id, "Ответы учтены")
-        bot.send_message(call.from_user.id, '''Вопрос 1. Чтобы отметить вариант ответа как правильный нажмите на крестик и ждите когда он изменится на галочку. Для подтверждение вариантов ответа нажмите кнопку "Далее" 
-        
-        
-        Прежде, чем отправить кандидата на рассмотрение работодателю, я:''', reply_markup=get_quiz_table(2, call.from_user.id))
+        bot.send_message(call.from_user.id, '''Вопрос 2. Чтобы отметить вариант ответа как правильный нажмите на крестик и ждите когда он изменится на галочку. Для подтверждение вариантов ответа нажмите кнопку "Далее" 
+Прежде, чем отправить кандидата на рассмотрение работодателю, я:''', reply_markup=get_quiz_table(2, call.from_user.id))
+    elif call.data == 'Accept' and session.query(workers).filter_by(user_id=call.from_user.id).first().test_stage == 2:
+        worker = session.query(workers).filter_by(user_id=call.from_user.id).first()
+        worker.test_stage = 3
+        session.commit()
+        session.close()
+        bot.send_message(call.from_user.id, "Ответы учтены")
+        bot.send_message(call.from_user.id, '''Вопрос 3. Прежде, чем отправить кандидата на рассмотрение работодателю, я:''',
+                         reply_markup=get_quiz_table(2, call.from_user.id))
+
 
 
 
