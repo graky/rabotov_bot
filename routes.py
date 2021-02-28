@@ -149,13 +149,15 @@ def change_true_false(question, workernumb):
 
 @bot.message_handler(commands=['start'])
 def get_start_message(message):
-    worker = session.query(workers).filter_by(user_id = message.from_user.id).first()
-    if worker:
+    work = len(session.query(workers).filter_by(user_id = message.from_user.id).all())
+    if work >0:
+        worker = session.query(workers).filter_by(user_id=message.from_user.id).first()
         session.delete(worker)
         session.commit()
         session.close()
-    form_request = session.query(form).filter_by(user_id=message.from_user.id).first()
-    if form_request:
+    form_request_len = len(session.query(form).filter_by(user_id=message.from_user.id).all())
+    if form_request_len > 0:
+        form_request = session.query(form).filter_by(user_id=message.from_user.id).first()
         session.delete(form_request)
         session.commit()
         session.close()
