@@ -12,7 +12,7 @@ session = DBSession()
 reading, writing = False, False
 token = '1697476492:AAE6Qt9iQlA_K1H6qk_aG6UHSoz8hM7ve-U'
 token2 = '1570308085:AAGk6o8oG0nL7fW2071aF3ar54RaEizFPT0'
-bot = telebot.TeleBot(token)
+bot = telebot.TeleBot(token2)
 keyboard1 = telebot.types.ReplyKeyboardMarkup(True, True)
 keyboard1.row('РАБОТАДАТЕЛЬ', 'РЕКРУТЕР')
 keyboard2 = telebot.types.ReplyKeyboardMarkup(True, True)
@@ -34,21 +34,33 @@ keyboard8 = telebot.types.ReplyKeyboardMarkup(True, True)
 keyboard8.row('ДАЛЕЕ')
 keyboard9 = telebot.types.ReplyKeyboardMarkup(True, True)
 keyboard9.row('ПРОЙТИ ТЕСТ')
-keyboard10 = telebot.types.InlineKeyboardMarkup()
+keyboard10 = telebot.types.ReplyKeyboardMarkup(True, True)
+keyboard10.row('ПОЛУЧИТЬ ЗАЯВКИ')
+
 
 all_answers_dict = {'Telegram':'Telegram' , 'Соцсети, работные сайты':'Соцсети, работные сайты', 'На рынке':'На рынке',
                     'Сайты знакомств':'Сайты знакомств', 'Дам объявление':'Дам объявление', 'Переманю':'Переманю',
 'Проведу телефонное интер':'Проведу телефонное интервью',
 'Созвонюсь по видео связи':'Созвонюсь по видео связи',
 'Встречусь вживую при нео':'Встречусь вживую при необходимости',
-'Только пообщаюсь по пере':'Только пообщаюсь по переписке'
-                    }
+'Только пообщаюсь по пере':'Только пообщаюсь по переписке',
+'Быть ИП':'Быть ИП',
+'Иметь юр лицо' :'Иметь юр лицо' ,
+'Открыть самозанятость':'Открыть самозанятость',
+ 'Быть фрилансером':  'Быть фрилансером'
+}
 
 question_list1 = ['Telegram', 'Соцсети, работные сайты', 'На рынке', 'Сайты знакомств', 'Дам объявление', 'Переманю',]
 question_list2 = ['Проведу телефонное интер',
 'Созвонюсь по видео связи',
 'Встречусь вживую при нео',
 'Только пообщаюсь по пере']
+question_list3 = [
+'Быть ИП',
+'Иметь юр лицо',
+'Открыть самозанятость',
+'Быть фрилансером'
+]
 def get_quiz_table(ques_numb, workernumb):
     global reading
     reading = True
@@ -65,13 +77,19 @@ def get_quiz_table(ques_numb, workernumb):
             elif ques_numb == 2:
                 TrueFalseList = [worker.second_test_1, worker.second_test_2, worker.second_test_3, worker.second_test_4]
                 quiz_answer_dict = dict(zip(question_list2, TrueFalseList))
+            elif ques_numb ==3:
+                TrueFalseList = [worker.third_test_1, worker.third_test_2, worker.third_test_3, worker.third_test_4]
+                quiz_answer_dict = dict(zip(question_list3, TrueFalseList))
             for ques, answ in quiz_answer_dict.items():
                 if quiz_answer_dict[ques]:
                     quiz_table.add(telebot.types.InlineKeyboardButton(text= ques, callback_data= "answ" + ques), telebot.types.InlineKeyboardButton(text= '✅', callback_data=ques))
                 else:
                     quiz_table.add(telebot.types.InlineKeyboardButton(text=ques, callback_data="answ" + ques),
                                    telebot.types.InlineKeyboardButton(text='❌', callback_data=ques))
-            quiz_table.add(telebot.types.InlineKeyboardButton(text= 'Далее', callback_data="Accept"))
+            if ques_numb == 3:
+                quiz_table.add(telebot.types.InlineKeyboardButton(text= 'Результат', callback_data="Accept"))
+            else:
+                quiz_table.add(telebot.types.InlineKeyboardButton(text='Далее', callback_data="Accept"))
         reading = False
         return quiz_table
 
@@ -91,6 +109,9 @@ def get_test_dict(ques_numb, workernumb):
             elif ques_numb ==2:
                 TrueFalseList = [worker.second_test_1, worker.second_test_2, worker.second_test_3, worker.second_test_4]
                 quiz_answer_dict = dict(zip(question_list2, TrueFalseList))
+            elif ques_numb ==3:
+                TrueFalseList = [worker.third_test_1, worker.third_test_2, worker.third_test_3, worker.third_test_4]
+                quiz_answer_dict = dict(zip(question_list3, TrueFalseList))
         reading = False
         return  quiz_answer_dict
     else:
@@ -141,6 +162,22 @@ def change_true_false(question, workernumb):
             session.close()
         elif question == 'Только пообщаюсь по пере':
             worker.second_test_4 = not worker.second_test_4
+            session.commit()
+            session.close()
+        elif question == 'Быть ИП':
+            worker.third_test_1 = not worker.third_test_1
+            session.commit()
+            session.close()
+        elif question == 'Иметь юр лицо':
+            worker.third_test_2 = not worker.third_test_2
+            session.commit()
+            session.close()
+        elif question == 'Открыть самозанятость':
+            worker.third_test_3 = not worker.third_test_3
+            session.commit()
+            session.close()
+        elif question == 'Быть фрилансером':
+            worker.third_test_4 = not worker.third_test_4
             session.commit()
             session.close()
         writing = False
@@ -242,7 +279,7 @@ def application_form(message):
             bot.send_message(message.from_user.id, 'Введите вознаграждение одним числом без букв')
         if salaryflag:
             if current_form.pay_level == 'MEDIUM':
-                if salary > 5000:
+                if salary > 5000 or (salary<1):
                     bot.send_message(message.from_user.id, 'вознаграждение рукретеру уровня MEDIUM от 1 до 5000 руб. Проверьте сумму и повторите отправку.')
                 else:
                     current_form.salary = salary
@@ -333,16 +370,18 @@ def application_form(message):
 ''',
                          reply_markup=keyboard11)
     elif message.text == 'ПРОЙТИ ОБУЧЕНИЕ':
-        session.add(workers(user_id=message.from_user.id))
-        worker = session.query(workers).filter_by(user_id = message.from_user.id).first()
-        worker.educ_lvl = 1
-        session.commit()
-        session.close()
-        bot.send_message(message.from_user.id,
-                         '''Мир поделен на две части: тот, кто предлагает работу, и тот, кто эту работу выполняет. Рекрутер относится ко второй категории. Мы с вами выполняем работу по поиску людей, которые согласны выполнять работу тех, кто ее предоставляет.
-Требуется понимать - насколько качественно мы выполним нашу с вами работу и как быстро предоставим нужного человека – от этого зависит наше будущее, как профессионала.
-''',
-                         reply_markup=keyboard8)
+        if len(session.query(workers).filter_by(user_id = message.from_user.id).all()) == 0:
+            session.add(workers(user_id=message.from_user.id))
+            worker = session.query(workers).filter_by(user_id = message.from_user.id).first()
+            worker.educ_lvl = 1
+            session.commit()
+            session.close()
+            bot.send_message(message.from_user.id,
+                             '''Мир поделен на две части: тот, кто предлагает работу, и тот, кто эту работу выполняет. Рекрутер относится ко второй категории. Мы с вами выполняем работу по поиску людей, которые согласны выполнять работу тех, кто ее предоставляет.
+    Требуется понимать - насколько качественно мы выполним нашу с вами работу и как быстро предоставим нужного человека – от этого зависит наше будущее, как профессионала.
+    ''',
+                             reply_markup=keyboard8)
+    
     elif message.text == 'ДАЛЕЕ':
         worker = session.query(workers).filter_by(user_id = message.from_user.id).first()
         if worker.educ_lvl == 1:
@@ -403,6 +442,7 @@ def application_form(message):
         Я буду искать кандидатов:''',
                              reply_markup=get_quiz_table(1, message.from_user.id))
 
+
 @bot.callback_query_handler(func=lambda call: True)
 def get_callback(call):
     if call.data in question_list1:
@@ -423,6 +463,16 @@ def get_callback(call):
                     bot.edit_message_reply_markup(call.message.chat.id, message_id=call.message.message_id,
                                                   reply_markup=get_quiz_table(2, call.from_user.id))
                     break
+    elif call.data in question_list3:
+        test_dict = get_test_dict(3, call.from_user.id)
+        if test_dict != "processing":
+            for key in test_dict:
+                if call.data == key:
+                    change_true_false(key, call.from_user.id)
+                    bot.edit_message_reply_markup(call.message.chat.id, message_id=call.message.message_id,
+                                                  reply_markup=get_quiz_table(3, call.from_user.id))
+                    break
+
 
     elif call.data.startswith('answ'):
         button_data = call.data[4:]
@@ -443,10 +493,64 @@ def get_callback(call):
         session.close()
         bot.send_message(call.from_user.id, "Ответы учтены")
         bot.send_message(call.from_user.id, '''Вопрос 3. Прежде, чем отправить кандидата на рассмотрение работодателю, я:''',
-                         reply_markup=get_quiz_table(2, call.from_user.id))
+                         reply_markup=get_quiz_table(3, call.from_user.id))
 
+    elif call.data == 'Accept' and session.query(workers).filter_by(user_id=call.from_user.id).first().test_stage == 3:
+        worker = session.query(workers).filter_by(user_id=call.from_user.id).first()
+        worker.test_stage = 4
+        result = 0
+        result1 = 0
+        result2 = 0
+        result3 = 0
+        ans_list1 = [
+        worker.first_test_1,
+        worker.first_test_2,
+        worker.first_test_3,
+        worker.first_test_4,
+        worker.first_test_5,
+        worker.first_test_6]
+        ans_list2 = [
+        worker.second_test_1,
+        worker.second_test_2,
+        worker.second_test_3,
+        worker.second_test_4]
+        ans_list3 =[
+        worker.third_test_1,
+        worker.third_test_2,
+        worker.third_test_3,
+        worker.third_test_4,
+        ]
+        point_list1 = [1,1,-1,1,1,1]
+        point_list2 = [1,1,1,-1]
+        point_list3 = [1,1,1,-3]
 
-
+        ans_point_list1 = [[ans_list1[i], point_list1[i]] for i in range(6)]
+        ans_point_list2 = [[ans_list2[i], point_list2[i]] for i in range(4)]
+        ans_point_list3 = [[ans_list3[i], point_list3[i]] for i in range(4)]
+        for lst1 in ans_point_list1:
+            if lst1[0]:
+                result1 += lst1[1]
+        for lst2 in ans_point_list2:
+            if lst2[0]:
+                result2 += lst2[1]
+        for lst3 in ans_point_list3:
+            if lst3[0]:
+                result3 += lst3[1]
+        if result1 == 5:
+            result +=5
+        if result2 == 3:
+            result +=3
+        if result3 >= 1:
+            result +=1
+        bot.send_message(call.from_user.id, "Ответы учтены")
+        print(result)
+        if result == 9:
+            bot.send_message(call.from_user.id, "Поздравляем, вы в команде!", reply_markup=keyboard10)
+        else:
+            session.delete(worker)
+            session.commit()
+            session.close()
+            bot.send_message(call.from_user.id, "Вы что-то упустили!", reply_markup=keyboard11)
 
 
 
