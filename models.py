@@ -16,15 +16,19 @@ class form(Base):
     pay_level =    Column(String)
     salary =       Column(Integer)
     nickname =     Column(String)
-    just_finished =Column(Boolean)
+    just_finished =Column(Boolean, default=False)
     active = Column(Boolean)
+    recruiter_count = Column(Integer, default=0)
     #editing = Column(Boolean)
 
 class workers(Base):
     __tablename__ = 'worker'
     id = Column(Integer, primary_key = True)
+    closed_tasks = Column(Integer, default=0)
+    level = Column(String, default='LIGHT')
     user_id = Column(Integer)
     educ_lvl = Column(Integer, default=0)
+    list_of_forms = Column(String, default='')
     test_stage = Column(Integer, default=0)
     first_test_1  = Column(Boolean, default=False)
     first_test_2  = Column(Boolean, default=False)
@@ -40,5 +44,6 @@ class workers(Base):
     third_test_2 = Column(Boolean, default=False)
     third_test_3 = Column(Boolean, default=False)
     third_test_4 = Column(Boolean, default=False)
+
 engine = create_engine('sqlite:///forms.db')
 Base.metadata.create_all(engine)
