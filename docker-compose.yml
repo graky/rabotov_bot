@@ -6,6 +6,9 @@ services:
     build: .
     command: python routes.py
     volumes:
-      - .:/app
+      - db:/app/db
     environment:
       TOKEN: ${TOKEN}
+
+volumes:
+  db:

@@ -45,5 +45,5 @@ class workers(Base):
     third_test_3 = Column(Boolean, default=False)
     third_test_4 = Column(Boolean, default=False)
 
-engine = create_engine('sqlite:///forms.db')
+engine = create_engine(r'sqlite:///db/forms.db')
 Base.metadata.create_all(engine)
