@@ -1,9 +1,11 @@
 import telebot
 import random
+import os
 from models import form, Base, workers
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from time import sleep
+
 engine = create_engine('sqlite:///forms.db?check_same_thread=False')
 Base.metadata.bind = engine
 DBSession = sessionmaker(bind=engine)
@@ -11,7 +13,7 @@ DBSession.bind = engine
 session = DBSession()
 #('LIGHT (бесплатно)', 'MEDIUM (до 5000 руб.)', 'HARD (от 5000 до 10000 руб.)', 'PRO (выше 10000 руб.)')
 reading, writing = False, False
-token = ''
+token = os.environ['TOKEN']
 token2 = ''
 bot = telebot.TeleBot(token)
 keyboard1 = telebot.types.ReplyKeyboardMarkup(True, True)

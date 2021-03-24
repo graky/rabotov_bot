@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  application:
+    restart: unless-stopped
+    build: .
+    command: python routes.py
+    volumes:
+      - .:/app
+    environment:
+      TOKEN: ${TOKEN}
