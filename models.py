@@ -1,8 +1,8 @@
 from sqlalchemy import Column, ForeignKey, Integer, String, Boolean
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, sessionmaker
 from sqlalchemy import create_engine
-
+import random
 Base = declarative_base()
 
 class form(Base):
@@ -45,5 +45,36 @@ class workers(Base):
     third_test_3 = Column(Boolean, default=False)
     third_test_4 = Column(Boolean, default=False)
 
-engine = create_engine(r'sqlite:///db/forms.db')
+class candidates(Base):
+    __tablename__ = 'candidates'
+    id = Column(Integer, primary_key=True)
+    id_form = Column(Integer)
+    worker_id = Column(Integer)
+    name = Column(String)
+    interview = Column(String)
+    video_review = Column(String)
+    meeting_result = Column(String)
+    mark = Column(String, default='wait')
+
+
+engine = create_engine(r'sqlite:///forms.db')
 Base.metadata.create_all(engine)
+Base.metadata.bind = engine
+DBSession = sessionmaker(bind=engine)
+DBSession.bind = engine
+session = DBSession()
+
+
+pay_level_list = {'LIGHT':[0, 0], 'MEDIUM':[1, 5000], 'HARD':[5000,10000], 'PRO':[10000, 100000]}
+
+def get_nickname(numb):
+    nick = '@nickname' + str(numb)
+    phone =  '+7' + str(random.randint(1000000000, 9999999999))
+    return random.choice([nick, phone])
+for i in range(100):
+    key = random.choice(list(pay_level_list.keys()))
+    value = random.randint(pay_level_list[key][0], pay_level_list[key][1])
+    session.add(form(user_id =i, vacancy = 'Тестовая вакансия {0}'.format(str(i)), duties ='Выполнять работу {0}'.format(str(i)), requirements ='необходимые требования{0}'.format(str(i)), conditions = 'необходимые условия {0}'.format(str(i)),  pay_level =key, salary = value, nickname = get_nickname(i), active = True))
+    session.commit()
+    session.close()
+print('done')

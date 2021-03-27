@@ -1,7 +1,7 @@
 import telebot
 import random
 import os
-from models import form, Base, workers
+from models import form, Base, workers, candidates
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from time import sleep
@@ -39,8 +39,18 @@ keyboard9 = telebot.types.ReplyKeyboardMarkup(True, True)
 keyboard9.row('ПРОЙТИ ТЕСТ')
 keyboard10 = telebot.types.ReplyKeyboardMarkup(True, True)
 keyboard10.row('ПОЛУЧИТЬ ЗАЯВКИ')
-
-
+keyboard12 = telebot.types.ReplyKeyboardMarkup(True, True)
+keyboard12.row('Не проводилось')
+keyboard13 = telebot.types.ReplyKeyboardMarkup()
+keyboard13.row('не соответствует, но очень хочет',
+ 'есть понимание и способности к обучению',
+ 'полностью соответствует: опыт и квалификация согласно заявке'
+)
+keyboard14 = telebot.types.ReplyKeyboardMarkup()
+keyboard14.row('ОТКЛОНИТЬ',
+ 'ТРУДОУСТРОИТЬ',
+ 'Подтвердить выход'
+)
 all_answers_dict = {'Telegram':'Telegram' , 'Соцсети, работные сайты':'Соцсети, работные сайты', 'На рынке':'На рынке',
                     'Сайты знакомств':'Сайты знакомств', 'Дам объявление':'Дам объявление', 'Переманю':'Переманю',
 'Проведу телефонное интер':'Проведу телефонное интервью',
@@ -316,11 +326,11 @@ def application_form(message):
             bot.send_message(message.from_user.id, 'В соотвествии с выбранным уровнем оплаты, вознаграждения работающему не предусмотрено. Введите ваш никнейм или номер телефон для контакта с работающим')
         else:
             current_form.pay_level = message.text
-            current_form.salary = 'wait'
+            current_form.salary = -100000
             session.commit()
             session.close()
             bot.send_message(message.from_user.id, 'Введите сумму вознаграждения')
-    elif len(session.query(form).filter_by(user_id = message.from_user.id, salary = 'wait').all()) > 0: #done
+    elif len(session.query(form).filter_by(user_id = message.from_user.id, salary = -100000).all()) > 0: #done
         session.close()
         current_form = session.query(form).filter_by(user_id = message.from_user.id, salary = 'wait').first()
         try:
@@ -533,6 +543,69 @@ PRO – заявки стоимостью от 10000 руб. Переход пр
                 worker.closed_tasks,
                 str(3 - worker.closed_tasks)
             ), reply_markup=form_buttons)
+
+
+    #Рабочий
+    elif len(session.query(candidates).filter_by(worker_id=message.from_user.id, name = 'wait').all()) > 0:
+        session.close()
+        recrut = session.query(candidates).filter_by(name = 'wait').first()
+        recrut.name = message.text
+        recrut.interview = 'wait'
+        session.commit()
+        session.close()
+        bot.send_message(message.from_user.id, 'Опишите итоги интервью', reply_markup=keyboard12)
+
+    elif len(session.query(candidates).filter_by(worker_id=message.from_user.id, interview = 'wait').all()) > 0:
+        session.close()
+        recrut = session.query(candidates).filter_by(interview = 'wait').first()
+        recrut.interview = message.text
+        recrut.video_review = 'wait'
+        session.commit()
+        session.close()
+        bot.send_message(message.from_user.id, 'Опишите итоги видео конференции', reply_markup=keyboard12)
+
+    elif len(session.query(candidates).filter_by(worker_id=message.from_user.id, video_review = 'wait').all()) > 0:
+        session.close()
+        recrut = session.query(candidates).filter_by(video_review = 'wait').first()
+        recrut.video_review = message.text
+        recrut.meeting_result = 'wait'
+        session.commit()
+        session.close()
+        bot.send_message(message.from_user.id, 'Опишите итоги встречи', reply_markup=keyboard12)
+
+    elif len(session.query(candidates).filter_by(worker_id=message.from_user.id, meeting_result = 'wait').all()) > 0:
+        session.close()
+        recrut = session.query(candidates).filter_by(meeting_result = 'wait').first()
+        recrut.meeting_result = message.text
+        recrut.mark = 'wait'
+        session.commit()
+        session.close()
+        bot.send_message(message.from_user.id, 'Оценка кандидата на соответствие предлагаемой должности', reply_markup=keyboard13)
+    elif len(session.query(candidates).filter_by(worker_id=message.from_user.id,mark ='wait').all()) > 0:
+        session.close()
+        recrut = session.query(candidates).filter_by(mark='wait').first()
+        recrut.mark = message.text
+        session.commit()
+        if recrut.interview == 'Не проводилось' and recrut.meeting_result == 'Не проводилось' and recrut.video_review == 'Не проводилось':
+            bot.send_message(message.from_user.id,''' Заявка не отправлена. Сначала
+ пообщайтесь с кандидатом в любом из форматов и напишите работодателю о результате вашего общения.''')
+            session.delete(recrut)
+            session.commit()
+        else:
+            bot.send_message(message.from_user.id, 'Заявка отправлена работадателю')
+            employee_id = session.query(form).filter_by(id = recrut.id_form).first().user_id
+            worker_closed_tasks = session.query(workers).filter_by(user_id = recrut.worker_id).first().closed_tasks
+            bot.send_message(employee_id, '''На вашу заявку откликнулись. 
+''' + '''Имя кандидата: {0}
+Итоги интервью: {1},
+Итоги видео конференции: {2},
+Итоги встречи: {3},
+Оценка кандидата на соответствие предлагаемой должности:  {4}.
+Уровень рекрутера: закрытых заявок {5}.
+'''.format(recrut.name, recrut.interview, recrut.video_review, recrut.meeting_result, recrut.mark, worker_closed_tasks) ,
+                             reply_markup=keyboard14)
+
+
 @bot.callback_query_handler(func=lambda call: True)
 def get_callback(call):
     if call.data in question_list1:
@@ -577,7 +650,13 @@ def get_callback(call):
         session.close()
         bot.send_message(call.from_user.id, "Заявка №{0} {1} принята в работу. Всего заявок  работе {2}. Введите /myforms чтобы просмотреть взятые вами заявки в работу".format(int(form_id), vacancy_name, active_forms_len ) )
 
-
+    elif call.data.split()[0] == 'candidate':
+        form_id = call.data.split()[1]
+        session.add(candidates(id_form = form_id, worker_id =call.from_user.id, name = 'wait'))
+        session.commit()
+        session.close()
+        bot.send_message(call.from_user.id, 'Заполните форму кандидата' )
+        bot.send_message(call.from_user.id, 'Введите имя кандидата')
 
 
     elif call.data.startswith('answ'):
