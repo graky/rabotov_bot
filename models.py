@@ -57,7 +57,7 @@ class candidates(Base):
     mark = Column(String, default='wait')
 
 
-engine = create_engine(r'sqlite:///forms.db')
+engine = create_engine(r'sqlite:///db/forms.db')
 Base.metadata.create_all(engine)
 Base.metadata.bind = engine
 DBSession = sessionmaker(bind=engine)
