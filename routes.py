@@ -6,11 +6,25 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from time import sleep
 
-engine = create_engine(r'sqlite:///db/forms.db?check_same_thread=False')
+
+'''
+user = 'bot_admin'
+password = 'bot_admin'
+db_name = 'rabotov_bot'
+db_host = 'db'
+'''
+user = os.environ.get('SQL_USER')
+password = os.environ.get('SQL_PASSWORD')
+db_name = os.environ.get('SQL_DATABASE')
+db_host = os.environ.get('SQL_HOST')
+
+
+engine = create_engine('postgresql+psycopg2://%s:%s@%s/%s' % (str(user), str(password), str(db_host), str(db_name)))
 Base.metadata.bind = engine
 DBSession = sessionmaker(bind=engine)
 DBSession.bind = engine
 session = DBSession()
+
 #('LIGHT (бесплатно)', 'MEDIUM (до 5000 руб.)', 'HARD (от 5000 до 10000 руб.)', 'PRO (выше 10000 руб.)')
 reading, writing = False, False
 token = os.environ['TOKEN']
@@ -100,8 +114,8 @@ def get_quiz_table(ques_numb, workernumb):
         reading = False
         quiz_table = telebot.types.InlineKeyboardMarkup()
         quiz_answer_dict = {}
-        if type(worker) != 'NoneType' :
-            if ques_numb ==1:
+        if type(worker) != 'NoneType':
+            if ques_numb == 1:
                 TrueFalseList = [worker.first_test_1, worker.first_test_2, worker.first_test_3, worker.first_test_4, worker.first_test_5, worker.first_test_6]
                 quiz_answer_dict = dict(zip(question_list1, TrueFalseList))
             elif ques_numb == 2:

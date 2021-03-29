@@ -2,13 +2,26 @@ version: '3.8'
 
 services:
   application:
-    restart: unless-stopped
+    restart: always
     build: .
-    command: python routes.py
-    volumes:
-      - db:/app/db
     environment:
       TOKEN: ${TOKEN}
-
-volumes:
+      SQL_DATABASE: ${SQL_DATABASE}
+      SQL_USER: ${SQL_USER}
+      SQL_PASSWORD: ${SQL_PASSWORD}
+      SQL_HOST: ${SQL_HOST}
+    env_file:
+      - ./.env
+    depends_on:
+        - db
   db:
+    image: postgres:12.0-alpine
+    restart: always
+    environment:
+      - POSTGRES_USER=bot_admin
+      - POSTGRES_PASSWORD=bot_admin
+      - POSTGRES_DB=rabotov_bot
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+volumes:
+  postgres_data:
