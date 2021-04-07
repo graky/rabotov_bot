@@ -40,5 +40,19 @@ elif message.text == 'Уровень оплаты':
     MEDIUM (до 5000 руб.),
     HARD (от 5000 до 10000 руб.),
     PRO (выше 10000 руб.)
-    """, reply_markup=keyboard3)'''
+    """, reply_markup=keyboard3)
 
+pay_level_list = {'LIGHT':[0, 0], 'MEDIUM':[1, 5000], 'HARD':[5000,10000], 'PRO':[10000, 100000]}
+
+for i in range(100):
+    key = random.choice(list(pay_level_list.keys()))
+    value = random.randint(pay_level_list[key][0], pay_level_list[key][1])
+    session.add(form(user_id =i, vacancy = 'говночист {0}'.format(str(i)), duties ='чистить говно {0}'.format(str(i)), requirements ='умелые руки {0}'.format(str(i)), conditions = 'барак {0}'.format(str(i)),  pay_level =key, salary = value, nickname = str(228*i), active = True))
+print('done')'''
+#1697476492:AAFqdRTjz-LOKIIKjKQqjT4BOS3PpBUS3G0 tok1
+#1570308085:AAFC4rvv6aQGb8SZt_sc4mWtmn-l27c6D8k tok2
+#employee_buttons = telebot.types.InlineKeyboardMarkup()
+           # employee_buttons.add(telebot.types.InlineKeyboardButton(text='СОБЕСЕДОВАТЬ', callback_data=''),
+            #                     telebot.types.InlineKeyboardButton(text='СОБЕСЕДОВАТЬ', callback_data=''),
+
+             #                    )

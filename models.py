@@ -23,6 +23,8 @@ class form(Base):
     just_finished = Column(Boolean, default=False)
     active = Column(Boolean)
     recruiter_count = Column(Integer, default=0)
+    done = Column(Boolean, default=False)
+    taken_in_work = Column(Boolean, default=False)
     # editing = Column(Boolean)
 
 
@@ -49,7 +51,7 @@ class workers(Base):
     third_test_2 = Column(Boolean, default=False)
     third_test_3 = Column(Boolean, default=False)
     third_test_4 = Column(Boolean, default=False)
-
+    done = Column(Boolean, default=False)
 class candidates(Base):
     __tablename__ = 'candidates'
     id = Column(Integer, primary_key=True)
@@ -60,6 +62,8 @@ class candidates(Base):
     video_review = Column(String)
     meeting_result = Column(String)
     mark = Column(String, default='wait')
+    contact = Column(String)
+
 
 
 '''
@@ -68,7 +72,7 @@ password = 'bot_admin'
 db_name = 'rabotov_bot'
 db_host = 'db'
 '''
-user = os.environ.get('SQL_USER')
+'''user = os.environ.get('SQL_USER')
 password = os.environ.get('SQL_PASSWORD')
 db_name = os.environ.get('SQL_DATABASE')
 db_host = os.environ.get('SQL_HOST')
@@ -80,13 +84,18 @@ Base.metadata.bind = engine
 DBSession = sessionmaker(bind=engine)
 DBSession.bind = engine
 session = DBSession()
-
-
-pay_level_list = {'LIGHT':[0, 0], 'MEDIUM':[1, 5000], 'HARD':[5000,10000], 'PRO':[10000, 100000]}
+'''
+engine = create_engine(r'sqlite:///forms.db')
+Base.metadata.create_all(engine)
+Base.metadata.bind = engine
+DBSession = sessionmaker(bind=engine)
+DBSession.bind = engine
+session = DBSession()
+'''pay_level_list = {'LIGHT':[0, 0], 'MEDIUM':[1, 5000], 'HARD':[5000,10000], 'PRO':[10000, 100000]}
 
 def get_nickname(numb):
     nick = '@nickname' + str(numb)
-    phone =  '+7' + str(random.randint(1000000000, 9999999999))
+    phone =  '+7' + str(random.randint(9000000000, 9999999999))
     return random.choice([nick, phone])
 for i in range(30):
     key = random.choice(list(pay_level_list.keys()))
@@ -94,4 +103,4 @@ for i in range(30):
     session.add(form(user_id =i, vacancy = 'Тестовая вакансия {0}'.format(str(i)), duties ='Выполнять работу {0}'.format(str(i)), requirements ='необходимые требования{0}'.format(str(i)), conditions = 'необходимые условия {0}'.format(str(i)),  pay_level =key, salary = value, nickname = get_nickname(i), active = True))
     session.commit()
     session.close()
-print('done')
+print('done')'''
