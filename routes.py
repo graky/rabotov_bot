@@ -91,13 +91,15 @@ def get_nickname(numb):
     return random.choice([nick, phone])
 
 
-'''for i in range(100):
+'''
+for i in range(100):
     key = random.choice(list(pay_level_list.keys()))
     value = random.randint(pay_level_list[key][0], pay_level_list[key][1])
     session.add(form(user_id =i, vacancy = 'Тестовая вакансия {0}'.format(str(i)), duties ='Выполнять работу {0}'.format(str(i)), requirements ='необходимые требования{0}'.format(str(i)), conditions = 'необходимые условия {0}'.format(str(i)),  pay_level =key, salary = value, nickname = get_nickname(i), active = True))
     session.commit()
     session.close()
-print('done')'''
+print('done')
+'''
 
 
 question_list1 = ['Telegram', 'Соцсети, работные сайты', 'На рынке', 'Сайты знакомств', 'Дам объявление', 'Переманю',]
