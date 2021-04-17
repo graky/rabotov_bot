@@ -6,11 +6,11 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from time import sleep
 
-engine = create_engine(r'sqlite:///forms.db?check_same_thread=False')
+'''engine = create_engine(r'sqlite:///forms.db?check_same_thread=False')
 Base.metadata.bind = engine
 DBSession = sessionmaker(bind=engine)
 DBSession.bind = engine
-session = DBSession()
+session = DBSession()'''
 
 '''
 user = 'bot_admin'
@@ -18,7 +18,7 @@ password = 'bot_admin'
 db_name = 'rabotov_bot'
 db_host = 'db'
 '''
-'''user = os.environ.get('SQL_USER')
+user = os.environ.get('SQL_USER')
 password = os.environ.get('SQL_PASSWORD')
 db_name = os.environ.get('SQL_DATABASE')
 db_host = os.environ.get('SQL_HOST')
@@ -28,13 +28,12 @@ engine = create_engine('postgresql+psycopg2://%s:%s@%s/%s' % (str(user), str(pas
 Base.metadata.bind = engine
 DBSession = sessionmaker(bind=engine)
 DBSession.bind = engine
-session = DBSession()'''
+session = DBSession()
 
 #('LIGHT (бесплатно)', 'MEDIUM (до 5000 руб.)', 'HARD (от 5000 до 10000 руб.)', 'PRO (выше 10000 руб.)')
 reading, writing = False, False
-#token = os.environ['TOKEN']
-token2 = '1570308085:AAFC4rvv6aQGb8SZt_sc4mWtmn-l27c6D8k'
-bot = telebot.TeleBot(token2)
+token = os.environ['TOKEN']
+bot = telebot.TeleBot(token)
 keyboard1 = telebot.types.ReplyKeyboardMarkup(True, True)
 keyboard1.row('РАБОТАДАТЕЛЬ', 'РЕКРУТЕР')
 keyboard2 = telebot.types.ReplyKeyboardMarkup(True, True)
