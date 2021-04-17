@@ -5,13 +5,13 @@ from models import form, Base, workers, candidates
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from time import sleep
-
-'''engine = create_engine(r'sqlite:///forms.db?check_same_thread=False')
+'''
+engine = create_engine(r'sqlite:///forms.db?check_same_thread=False')
 Base.metadata.bind = engine
 DBSession = sessionmaker(bind=engine)
 DBSession.bind = engine
-session = DBSession()'''
-
+session = DBSession()
+'''
 '''
 user = 'bot_admin'
 password = 'bot_admin'
@@ -33,7 +33,7 @@ session = DBSession()
 #('LIGHT (бесплатно)', 'MEDIUM (до 5000 руб.)', 'HARD (от 5000 до 10000 руб.)', 'PRO (выше 10000 руб.)')
 reading, writing = False, False
 token = os.environ['TOKEN']
-bot = telebot.TeleBot(token)
+bot = telebot.TeleBot(token2)
 keyboard1 = telebot.types.ReplyKeyboardMarkup(True, True)
 keyboard1.row('РАБОТАДАТЕЛЬ', 'РЕКРУТЕР')
 keyboard2 = telebot.types.ReplyKeyboardMarkup(True, True)
@@ -91,13 +91,15 @@ def get_nickname(numb):
     return random.choice([nick, phone])
 
 
-'''for i in range(100):
+'''
+for i in range(100):
     key = random.choice(list(pay_level_list.keys()))
     value = random.randint(pay_level_list[key][0], pay_level_list[key][1])
     session.add(form(user_id =i, vacancy = 'Тестовая вакансия {0}'.format(str(i)), duties ='Выполнять работу {0}'.format(str(i)), requirements ='необходимые требования{0}'.format(str(i)), conditions = 'необходимые условия {0}'.format(str(i)),  pay_level =key, salary = value, nickname = get_nickname(i), active = True))
     session.commit()
     session.close()
-print('done')'''
+print('done')
+'''
 
 
 question_list1 = ['Telegram', 'Соцсети, работные сайты', 'На рынке', 'Сайты знакомств', 'Дам объявление', 'Переманю',]

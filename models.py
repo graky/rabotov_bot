@@ -67,10 +67,6 @@ class candidates(Base):
 
 
 
-user = 'bot_admin'
-password = 'bot_admin'
-db_name = 'rabotov_bot'
-db_host = 'db'
 user = os.environ.get('SQL_USER')
 password = os.environ.get('SQL_PASSWORD')
 db_name = os.environ.get('SQL_DATABASE')
@@ -83,14 +79,15 @@ Base.metadata.bind = engine
 DBSession = sessionmaker(bind=engine)
 DBSession.bind = engine
 session = DBSession()
-
-'''engine = create_engine(r'sqlite:///forms.db')
+'''
+engine = create_engine(r'sqlite:///forms.db')
 Base.metadata.create_all(engine)
 Base.metadata.bind = engine
 DBSession = sessionmaker(bind=engine)
 DBSession.bind = engine
-session = DBSession()'''
-'''pay_level_list = {'LIGHT':[0, 0], 'MEDIUM':[1, 5000], 'HARD':[5000,10000], 'PRO':[10000, 100000]}
+session = DBSession()
+'''
+pay_level_list = {'LIGHT':[0, 0], 'MEDIUM':[1, 5000], 'HARD':[5000,10000], 'PRO':[10000, 100000]}
 
 def get_nickname(numb):
     nick = '@nickname' + str(numb)
