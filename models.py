@@ -89,7 +89,7 @@ session = DBSession()
 '''
 pay_level_list = {'LIGHT':[0, 0], 'MEDIUM':[1, 5000], 'HARD':[5000,10000], 'PRO':[10000, 100000]}
 
-def get_nickname(numb):
+'''def get_nickname(numb):
     nick = '@nickname' + str(numb)
     phone =  '+7' + str(random.randint(9000000000, 9999999999))
     return random.choice([nick, phone])
@@ -99,4 +99,5 @@ for i in range(30):
     session.add(form(user_id =i, vacancy = 'Тестовая вакансия {0}'.format(str(i)), duties ='Выполнять работу {0}'.format(str(i)), requirements ='необходимые требования{0}'.format(str(i)), conditions = 'необходимые условия {0}'.format(str(i)),  pay_level =key, salary = value, nickname = get_nickname(i), active = True))
     session.commit()
     session.close()
-print('done')'''
+print('done')
+'''
