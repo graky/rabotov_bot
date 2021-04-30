@@ -297,6 +297,37 @@ def get_start_message(message):
         ), reply_markup=form_button)
 
 
+@bot.message_handler(commands=['forms'])
+def get_start_message(message):
+    forms = session.query(form).filter_by(user_id=message.from_user.id).all()
+    bot.send_message(message.from_user.id, 'Ваши созданные вакансии:')
+    for form_s in forms:
+        form_button = telebot.types.InlineKeyboardMarkup()
+        form_button.add(
+            telebot.types.InlineKeyboardButton(text='Удалить заявку',
+                                               callback_data='delete_from' + ' ' + str(form_s.id)))
+        bot.send_message(message.from_user.id, '''Заявка:
+                Номер заявки: {0},
+                Работодатель:{7},
+                Наименование вакансии: {1},
+                Обязанности: {2},
+                Требования: {3},
+                Условия работы: {4},
+                Сумма вознаграждения: {6},
+                Взято в работу рекрутерами: {8}.
+                '''.format(
+            str(form_s.id),
+            form_s.vacancy,
+            form_s.duties,
+            form_s.requirements,
+            form_s.conditions,
+            form_s.pay_level,
+            str(form_s.salary),
+            form_s.nickname,
+            form_s.recruiter_count,
+        ), reply_markup=form_button)
+
+
 @bot.message_handler(content_types=['text'])
 def application_form(message):
     if message.text == 'РАБОТАДАТЕЛЬ':
@@ -442,35 +473,31 @@ def application_form(message):
         session.close()
 
     elif message.text == 'Запустить подбор':
+
         form_request = session.query(form).filter_by(user_id=message.from_user.id, active=False).first()
         form_request.done = True
         form_request.active = True
+        form_button = telebot.types.InlineKeyboardMarkup()
+        form_button.add(
+            telebot.types.InlineKeyboardButton(text='Удалить заявку',
+                                               callback_data='delete_from' + ' ' + str(form_request.id)))
         bot.send_message(message.from_user.id,
-                         'заявка №{0} {1} добавлена в выдачу. Чтобы удалить заявку введите ЗАКРЫТЬ ЗАЯВКУ'.format(
-                             str(form_request.id), form_request.vacancy, ), reply_markup=keyboard6)
+                         'заявка №{0} {1} добавлена в выдачу. Введите /start чтобы создать новую вакансию. Чтобы удалить заявку нажмите кнопку <Удалить заявку>. Чтобы просмотреть созданные вами заявки введите /forms'.format(
+                             str(form_request.id), form_request.vacancy, ), reply_markup=form_button)
         session.commit()
         session.close()
-    elif message.text == 'ЗАКРЫТЬ ЗАЯВКУ':
-        form_request = session.query(form).filter_by(user_id=message.from_user.id).all()
-        if len(form_request) > 0:
-            form_request = session.query(form).filter_by(user_id=message.from_user.id).first()
-            session.delete(form_request)
-            bot.send_message(message.from_user.id,
-                             'заявка №{0} {1} закрыта. Чтобы добавить новую заявку введите /start'.format(
-                                 str(form_request.id), form_request.vacancy, ))
-            session.commit()
-            session.close()
-        else:
-            bot.send_message(message.from_user.id,
-                             'Нет активных заявок')
 
 
 
     elif message.text == 'РЕКРУТЕР':
-        bot.send_message(message.from_user.id,
-                         'Заработай больше на поиске персонала. Закрывай заявки в любое время. Делай то, что тебе нравится.',
-                         reply_markup=keyboard7)
-
+        if len(session.query(workers).filter_by(user_id=message.from_user.id).all()) == 0:
+            bot.send_message(message.from_user.id,
+                             'Заработай больше на поиске персонала. Закрывай заявки в любое время. Делай то, что тебе нравится.',
+                             reply_markup=keyboard7)
+        else:
+            bot.send_message(message.from_user.id,
+                             'Вы уже зарегистрированы. Для получения вакансий нажмите ПОЛУЧИТЬ ЗАЯВКИ.',
+                             reply_markup=keyboard10)
     elif message.text == 'ПРОЙТИ РЕГИСТРАЦИЮ':
 
         bot.send_message(message.from_user.id,
@@ -762,6 +789,15 @@ def get_callback(call):
         candidate = session.query(candidates).filter_by(id = call.data.split()[2]).first()
         candidate.exit_proof = True
         s_form = session.query(form).filter_by(id = call.data.split()[3]).first()
+        worker = session.query(workers).filter_by(user_id = call.data.split()[1]).first()
+        worker.closed_tasks = worker.closed_tasks + 1
+        if worker.closed_tasks == 3:
+            worker.level = 'MEDIUM'
+        elif worker.closed_tasks == 10:
+            worker.level = 'HARD'
+        elif worker.closed_tasks == 20:
+            worker.level = 'PRO'
+        session.commit()
         bot.send_message(call.data.split()[1], '''Выход вашего кандидата {0} подтверждён.  Вакансия: 
                 Номер заявки: {1},
                 Работодатель:{2},
@@ -796,6 +832,13 @@ def get_callback(call):
                                                                  callback_data='video' + ' ' + ' '.join(
                                                                      call.data.split()[1:])))
         bot.send_message(call.from_user.id, 'Выберите формат собеседования', reply_markup=interview_buttons)
+
+    elif call.data.split()[0] == 'delete_from':
+        s_form = session.query(form).filter_by(id=int(call.data.split()[1])).first()
+        session.delete(s_form)
+        session.commit()
+        session.close()
+        bot.send_message(call.from_user.id, 'Вакансия удалена')
 
     elif call.data.split()[0] == 'contact':
         candid = session.query(candidates).filter_by(id=int(call.data.split()[3])).first()
