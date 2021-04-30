@@ -64,7 +64,7 @@ class candidates(Base):
     mark = Column(String, default='wait')
     contact = Column(String)
     exit_proof = Column(Boolean, default=False)
-
+    link_wait = Column(Boolean, default= False)
 
 
 '''
