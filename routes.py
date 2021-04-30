@@ -843,34 +843,27 @@ def get_callback(call):
                                                                      call.data.split()[1:])))
         bot.send_message(call.from_user.id, 'Выберите формат собеседования', reply_markup=interview_buttons)
     elif call.data.split()[0] == 'audio':
-        s_form = session.query(form).filter_by(id = int(call.data.split()[4]))
+        s_form = session.query(form).filter_by(id = int(call.data.split()[4])).first()
         interview_buttons = telebot.types.InlineKeyboardMarkup()
         interview_buttons.add(telebot.types.InlineKeyboardButton(text='Собеседовать',
                                                                  callback_data='recrut_accept' + ' ' + ' '.join(
                                                                      call.data.split()[1:])))
-        bot.send_message(call.data.split()[0], 'Работодатель вакансии {0} {1} готов к аудио встрече в ближайшее время.'.format(s_form.id, s_form.vacancy), reply_markup=interview_buttons)
+        bot.send_message(call.data.split()[2], 'Работодатель вакансии {0} {1} готов к аудио встрече в ближайшее время.'.format(s_form.id, s_form.vacancy), reply_markup=interview_buttons)
     elif call.data.split()[0] == 'video':
         s_form = session.query(form).filter_by(id = int(call.data.split()[4]))
         interview_buttons = telebot.types.InlineKeyboardMarkup()
         interview_buttons.add(telebot.types.InlineKeyboardButton(text='Собеседовать',
                                                                  callback_data='recrut_accept' + ' ' + ' '.join(
                                                                      call.data.split()[1:])))
-        bot.send_message(call.data.split()[0], 'Работодатель вакансии {0} {1} готов к видео встрече в ближайшее время.'.format(s_form.id, s_form.vacancy), reply_markup=interview_buttons)
+        bot.send_message(call.data.split()[2], 'Работодатель вакансии {0} {1} готов к видео встрече в ближайшее время.'.format(s_form.id, s_form.vacancy), reply_markup=interview_buttons)
 
-    elif call.data.split()[0] == 'video':
-        s_form = session.query(form).filter_by(id = int(call.data.split()[4]))
-        interview_buttons = telebot.types.InlineKeyboardMarkup()
-        interview_buttons.add(telebot.types.InlineKeyboardButton(text='Собеседовать',
-                                                                 callback_data='recrut_accept' + ' ' + ' '.join(
-                                                                     call.data.split()[1:])))
-        bot.send_message(call.data.split()[0], 'Работодатель вакансии {0} {1} готов к видео встрече в ближайшее время.'.format(s_form.id, s_form.vacancy), reply_markup=interview_buttons)
 
     elif call.data.split()[0] == 'recrut_accept':
-        recrut = session.query(candidates).filter_by(worker_id = call.from_user_id).first()
+        recrut = session.query(candidates).filter_by(worker_id = call.from_user.id).first()
         recrut.link_wait = True
         session.commit()
         session.close()
-        bot.send_message(call.from_user_id, 'Введите ссылку на конференцию')
+        bot.send_message(call.from_user.id, 'Введите ссылку на конференцию')
 
     elif call.data.split()[0] == 'delete_from':
         s_form = session.query(form).filter_by(id=int(call.data.split()[1])).first()
