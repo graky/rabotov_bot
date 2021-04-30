@@ -722,6 +722,7 @@ PRO – заявки стоимостью от 10000 руб. Переход пр
         session.close()
         bot.send_message(message.from_user.id, 'Оценка кандидата на соответствие предлагаемой должности',
                          reply_markup=keyboard13)
+
     elif len(session.query(candidates).filter_by(worker_id=message.from_user.id, mark='wait').all()) > 0:
         session.close()
         recrut = session.query(candidates).filter_by(mark='wait').first()
@@ -758,11 +759,7 @@ PRO – заявки стоимостью от 10000 руб. Переход пр
                                                                         employee_id) + ' ' + str(
                                                                         recrut.worker_id) + ' ' + str(
                                                                         recrut.id) + ' ' + str(form_id)), )
-            employee_buttons.add(telebot.types.InlineKeyboardButton(text='«ПОДТВЕРДИТЬ ВЫХОД»',
-                                                                    callback_data='active' + ' ' + str(
-                                                                        employee_id) + ' ' + str(
-                                                                        recrut.worker_id) + ' ' + str(
-                                                                        recrut.id) + ' ' + str(form_id)))
+
             bot.send_message(employee_id, '''На вашу заявку откликнулись. 
 ''' + '''Имя кандидата: {0}
 Итоги интервью: {1},
@@ -812,9 +809,11 @@ def get_callback(call):
            s_form.conditions,
            s_form.pay_level,
            str(s_form.salary)))
+        session.delete(s_form)
+        session.commit()
         bot.send_message(call.from_user.id, 'Выход кандидата подтвержден')
         session.close()
-    elif call.data.split()[0] == 'take':
+    elif call.data.split()[0] == 'interview':
         interview_buttons = telebot.types.InlineKeyboardMarkup()
         interview_buttons.add(telebot.types.InlineKeyboardButton(text='аудио',
                                                                  callback_data='audio' + ' ' + ' '.join(
@@ -826,12 +825,19 @@ def get_callback(call):
     elif call.data.split()[0] == 'calendar':
         interview_buttons = telebot.types.InlineKeyboardMarkup()
         interview_buttons.add(telebot.types.InlineKeyboardButton(text='аудио',
-                                                                 callback_data='audio' + ' ' + ' '.join(
+                                                                 callback_data='calendar_audio' + ' ' + ' '.join(
                                                                      call.data.split()[1:])),
                               telebot.types.InlineKeyboardButton(text='видео» ',
-                                                                 callback_data='video' + ' ' + ' '.join(
+                                                                 callback_data='calendar_video' + ' ' + ' '.join(
                                                                      call.data.split()[1:])))
         bot.send_message(call.from_user.id, 'Выберите формат собеседования', reply_markup=interview_buttons)
+    elif call.data.split()[0] == 'audio':
+        s_form = session.query(form).filter_by(id = int(call.data.split()[4]))
+        interview_buttons = telebot.types.InlineKeyboardMarkup()
+        interview_buttons.add(telebot.types.InlineKeyboardButton(text='Собеседовать',
+                                                                 callback_data='recrut_accept' + ' ' + ' '.join(
+                                                                     call.data.split()[1:])))
+        bot.send_message(call.data.split()[0], 'Работодатель вакансии {0} {1} готов к аудио встрече в ближайшее время.'.format(s_form.id, s_form.vacancy), reply_markup=interview_buttons)
 
     elif call.data.split()[0] == 'delete_from':
         s_form = session.query(form).filter_by(id=int(call.data.split()[1])).first()
@@ -847,7 +853,7 @@ def get_callback(call):
         session.close()
         bot.send_message(call.from_user.id, 'Введите контакты работающего')
 
-    elif call.data.split()[0] == 'active':
+    elif call.data.split()[0] == 'take':
         if len(session.query(candidates).filter_by(id=int(call.data.split()[3])).all()) > 0:
             contact_buttons = telebot.types.InlineKeyboardMarkup()
             contact_buttons.add(telebot.types.InlineKeyboardButton(text='ПЕРЕДАТЬ КОНТАКТ',
