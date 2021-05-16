@@ -55,7 +55,8 @@ keyboard8.row('ДАЛЕЕ')
 keyboard9 = telebot.types.ReplyKeyboardMarkup(True, True)
 keyboard9.row('ПРОЙТИ ТЕСТ')
 keyboard10 = telebot.types.ReplyKeyboardMarkup(True, True)
-keyboard10.row('ПОЛУЧИТЬ ЗАЯВКИ')
+keyboard10.row('ПОЛУЧИТЬ ВСЕ ЗАЯВКИ',
+               'ВЫБРАТЬ КАТЕГОРИЮ')
 keyboard12 = telebot.types.ReplyKeyboardMarkup(True, True)
 keyboard12.row('Не проводилось')
 keyboard13 = telebot.types.ReplyKeyboardMarkup()
@@ -277,6 +278,7 @@ def get_start_message(message):
                 Номер заявки: {0},
                 Работодатель:{7},
                 Наименование вакансии: {1},
+                Категория: {9},
                 Обязанности: {2},
                 Требования: {3},
                 Условия работы: {4},
@@ -293,7 +295,8 @@ def get_start_message(message):
             form_s.nickname,
             form_s.recruiter_count,
             worker.closed_tasks,
-            str(3 - worker.closed_tasks)
+            str(3 - worker.closed_tasks),
+            str(form_s.category,),
         ), reply_markup=form_button)
 
 
@@ -310,6 +313,7 @@ def get_start_message(message):
                 Номер заявки: {0},
                 Работодатель:{7},
                 Наименование вакансии: {1},
+                Категория: {9},
                 Обязанности: {2},
                 Требования: {3},
                 Условия работы: {4},
@@ -325,6 +329,7 @@ def get_start_message(message):
             str(form_s.salary),
             form_s.nickname,
             form_s.recruiter_count,
+            str(form_s.category, ),
         ), reply_markup=form_button)
 
 
@@ -335,7 +340,16 @@ def application_form(message):
                          'Не тратьте время на поиск сотрудников. Делегируйте. Рекрутеры займутся этим вопросом за вас.',
                          reply_markup=keyboard2)
     if message.text == 'ЗАПОЛНИТЬ ЗАЯВКУ':
-        session.add(form(user_id=message.from_user.id, vacancy='wait'))
+        session.add(form(user_id=message.from_user.id, category='wait'))
+        session.commit()
+        session.close()
+        bot.send_message(message.from_user.id, 'Введите категорию вакансии')
+
+    elif len(session.query(form).filter_by(user_id=message.from_user.id, category='wait').all()) > 0:  # done
+        session.close()
+        current_form = session.query(form).filter_by(user_id=message.from_user.id, category='wait').first()
+        current_form.category = message.text
+        current_form.vacancy = 'wait'
         session.commit()
         session.close()
         bot.send_message(message.from_user.id, 'Введите название вакансии')
@@ -452,6 +466,7 @@ def application_form(message):
         bot.send_message(message.from_user.id, '''Ваша форма:
 Номер вакансии: {0},
 Название вакансии: {1},
+Категория: {8},
 Обязанности: {2},
 Требования: {3},
 Условия работы: {4},
@@ -467,6 +482,7 @@ def application_form(message):
             form_request.pay_level,
             str(form_request.salary),
             form_request.nickname,
+            form_request.category,
         ), reply_markup=keyboard4)
         form_request.active = False
         session.commit()
@@ -585,8 +601,9 @@ PRO – заявки стоимостью от 10000 руб. Переход пр
 
         Я буду искать кандидатов:''',
                          reply_markup=get_quiz_table(1, message.from_user.id))
-    elif message.text == 'ПОЛУЧИТЬ ЗАЯВКИ' and session.query(workers).filter_by(
-            user_id=message.from_user.id).first().test_stage == 4:
+
+    elif message.text == 'ПОЛУЧИТЬ ВСЕ ЗАЯВКИ' and session.query(workers).filter_by(
+        user_id=message.from_user.id).first().test_stage == 4:
         bot.send_message(message.from_user.id, 'В соответствии с вашим уровнем доступны следующие заявки:')
         worker = session.query(workers).filter_by(user_id=message.from_user.id).first()
         worker_level = worker.level
@@ -600,6 +617,7 @@ PRO – заявки стоимостью от 10000 руб. Переход пр
             Номер заявки: {0},
             Работодатель:{7},
             Наименование вакансии: {1},
+            Категория: {11},
             Обязанности: {2},
             Требования: {3},
             Условия работы: {4},
@@ -617,8 +635,22 @@ PRO – заявки стоимостью от 10000 руб. Переход пр
                 s_form.nickname,
                 s_form.recruiter_count,
                 worker.closed_tasks,
-                str(3 - worker.closed_tasks)
+                str(3 - worker.closed_tasks),
+                s_form.category,
             ), reply_markup=form_buttons)
+    elif message.text == 'ВЫБРАТЬ КАТЕГОРИЮ' and session.query(workers).filter_by(
+        user_id=message.from_user.id).first().test_stage == 4:
+        bot.send_message(message.from_user.id, "Доступные на данный момент категории")
+        categories = set(session.query(form.category).all())
+        for cat in categories:
+            cat_button = telebot.types.InlineKeyboardMarkup()
+            cat_button.add(
+                telebot.types.InlineKeyboardButton(text='ВЫБРАТЬ ДАННУЮ КАТЕГОРИЮ',
+                                                   callback_data='category+' + str(cat[0])))
+            bot.send_message(message.from_user.id, str(cat[0]), reply_markup=cat_button)
+
+
+
 
 
     # Рабочий
@@ -652,6 +684,7 @@ PRO – заявки стоимостью от 10000 руб. Переход пр
                 Номер заявки: {0},
                 Работодатель:{7},
                 Наименование вакансии: {1},
+                Категория: {8},
                 Обязанности: {2},
                 Требования: {3},
                 Условия работы: {4},
@@ -663,12 +696,14 @@ PRO – заявки стоимостью от 10000 руб. Переход пр
                     s_form.conditions,
                     s_form.pay_level,
                     str(s_form.salary),
-                    s_form.nickname, ))
+                    s_form.nickname,
+                    s_form.category, ))
                 session.commit()
         bot.send_message(s_form.user_id, '''Рекрутер передал вам контакты работника:
 {0}
 Вакансия: 
 Номер заявки: {1},
+Категория: {8},
 Наименование вакансии: {3},
 Обязанности: {4},
 Требования: {5},
@@ -681,7 +716,8 @@ PRO – заявки стоимостью от 10000 руб. Переход пр
            s_form.requirements,
            s_form.conditions,
            s_form.pay_level,
-           str(s_form.salary)), reply_markup=employee_buttons)
+           str(s_form.salary),
+           s_form.category,), reply_markup=employee_buttons)
         bot.send_message(message.from_user.id,
                          'Контакты работника переданы работодателю. Чтобы проверить подтвержден ли выход работника нажмите <Статус заявки>. Чтобы посмотреть заявки, ожидающие подтверждения выхода введите /confirm',
                          reply_markup=recruter_buttons)
@@ -809,17 +845,22 @@ def get_callback(call):
         bot.send_message(call.data.split()[1], '''Выход вашего кандидата {0} подтверждён.  Вакансия: 
                 Номер заявки: {1},
                 Работодатель:{2},
+                Категория: {8},
                 Наименование вакансии: {3},
                 Обязанности: {4},
                 Требования: {5},
                 Условия работы: {6},
-                Сумма вознаграждения: {7},'''.format(candidate.name, str(s_form.id),
+                Сумма вознаграждения: {7},'''.format(
+            candidate.name,
+            str(s_form.id),
            s_form.vacancy,
            s_form.duties,
            s_form.requirements,
            s_form.conditions,
            s_form.pay_level,
-           str(s_form.salary)))
+           str(s_form.salary,),
+        s_form.category,))
+
         session.delete(s_form)
         session.commit()
         bot.send_message(call.from_user.id, 'Выход кандидата подтвержден')
@@ -892,6 +933,7 @@ def get_callback(call):
                 Номер заявки: {0},
                 Работодатель:{7},
                 Наименование вакансии: {1},
+                Категория: {9},
                 Обязанности: {2},
                 Требования: {3},
                 Условия работы: {4},
@@ -905,7 +947,8 @@ def get_callback(call):
                 s_form.pay_level,
                 str(s_form.salary),
                 s_form.nickname,
-                s_form.recruiter_count), reply_markup=contact_buttons)
+                s_form.recruiter_count,
+                s_form.category), reply_markup=contact_buttons)
             bot.send_message(call.from_user.id, 'Вы приняли кандидата', )
             session.commit()
             session.close()
@@ -917,6 +960,7 @@ def get_callback(call):
                 Номер заявки: {0},
                 Работодатель:{7},
                 Наименование вакансии: {1},
+                Категория: {9},
                 Обязанности: {2},
                 Требования: {3},
                 Условия работы: {4},
@@ -930,7 +974,8 @@ def get_callback(call):
                 s_form.pay_level,
                 str(s_form.salary),
                 s_form.nickname,
-                s_form.recruiter_count))
+                s_form.recruiter_count,
+                s_form.category))
             session.delete(candid)
             bot.send_message(call.from_user.id, 'Вы отклонили кандидата', )
             session.close()
@@ -976,6 +1021,43 @@ def get_callback(call):
         session.close()
         bot.send_message(call.from_user.id, 'Заполните форму кандидата')
         bot.send_message(call.from_user.id, 'Введите имя кандидата')
+
+    elif call.data.split('+')[0] == 'category':
+        bot.send_message(call.from_user.id, 'В выбранной категории вам доступны следующие заявки:')
+        chosen_category = call.data.split('+')[1]
+        worker = session.query(workers).filter_by(user_id=call.from_user.id).first()
+        worker_level = worker.level
+        for s_form in session.query(form).filter_by(pay_level=worker_level, category=chosen_category).all():
+            form_buttons = telebot.types.InlineKeyboardMarkup()
+            form_buttons.add(
+                telebot.types.InlineKeyboardButton(text='ВЗЯТЬ В РАБОТУ', callback_data='work' + ' ' + str(s_form.id)),
+                telebot.types.InlineKeyboardButton(text='ПРЕДЛОЖИТЬ КАНДИДАТА',
+                                                   callback_data='candidate' + ' ' + str(s_form.id)))
+            bot.send_message(call.from_user.id, '''Заявка:
+                    Номер заявки: {0},
+                    Работодатель:{7},
+                    Наименование вакансии: {1},
+                    Категория: {11},
+                    Обязанности: {2},
+                    Требования: {3},
+                    Условия работы: {4},
+                    Сумма вознаграждения: {6},
+                    Взято в работу рекрутерами: {8}.
+                    Ваш уровень: закрытых заявок {9} ({10} заявки до перехода на уровень MEDIUM)
+                            '''.format(
+                str(s_form.id),
+                s_form.vacancy,
+                s_form.duties,
+                s_form.requirements,
+                s_form.conditions,
+                s_form.pay_level,
+                str(s_form.salary),
+                s_form.nickname,
+                s_form.recruiter_count,
+                worker.closed_tasks,
+                str(3 - worker.closed_tasks),
+                s_form.category,
+            ), reply_markup=form_buttons)
 
 
     elif call.data.startswith('answ'):
