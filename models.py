@@ -92,8 +92,8 @@ DBSession = sessionmaker(bind=engine)
 DBSession.bind = engine
 session = DBSession()
 
-'''
-pay_level_list = {'LIGHT':[0, 0], 'MEDIUM':[1, 5000], 'HARD':[5000,10000], 'PRO':[10000, 100000]}
+
+'''pay_level_list = {'LIGHT':[0, 0], 'MEDIUM':[1, 5000], 'HARD':[5000,10000], 'PRO':[10000, 100000]}
 def get_nickname(numb):
     nick = '@nickname' + str(numb)
     phone = '+7' + str(random.randint(9000000000, 9999999999))
