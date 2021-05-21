@@ -5,7 +5,7 @@ from models import form, Base, workers, candidates
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from time import sleep
-'''
+
 engine = create_engine(r'sqlite:///forms.db?check_same_thread=False')
 Base.metadata.bind = engine
 DBSession = sessionmaker(bind=engine)
@@ -22,12 +22,12 @@ Base.metadata.bind = engine
 DBSession = sessionmaker(bind=engine)
 DBSession.bind = engine
 session = DBSession()
-
+'''
 # ('LIGHT (бесплатно)', 'MEDIUM (до 5000 руб.)', 'HARD (от 5000 до 10000 руб.)', 'PRO (выше 10000 руб.)')
 reading, writing = False, False
-token = os.environ['TOKEN']
-token2 = ''
-bot = telebot.TeleBot(token)
+#token = os.environ['TOKEN']
+token2 = '1750912576:AAHFYIs2DQp46NVxfMCuxvhZ2mrHbXupVi4'
+bot = telebot.TeleBot(token2)
 keyboard1 = telebot.types.ReplyKeyboardMarkup(True, True)
 keyboard1.row('РАБОТАДАТЕЛЬ', 'РЕКРУТЕР')
 keyboard2 = telebot.types.ReplyKeyboardMarkup(True, True)
@@ -343,7 +343,7 @@ def application_form(message):
     elif len(session.query(form).filter_by(user_id=message.from_user.id, category='wait').all()) > 0:  # done
         session.close()
         current_form = session.query(form).filter_by(user_id=message.from_user.id, category='wait').first()
-        current_form.category = message.text
+        current_form.category = message.text[0].upper() + message.text[1:len(message.text)].lower()
         current_form.vacancy = 'wait'
         session.commit()
         session.close()
@@ -597,6 +597,7 @@ PRO – заявки стоимостью от 10000 руб. Переход пр
         Я буду искать кандидатов:''',
                          reply_markup=get_quiz_table(1, message.from_user.id))
 
+    #получение заявок
     elif message.text == 'ПОЛУЧИТЬ ВСЕ ЗАЯВКИ' and session.query(workers).filter_by(
         user_id=message.from_user.id).first().test_stage == 4:
         bot.send_message(message.from_user.id, 'В соответствии с вашим уровнем доступны следующие заявки:')
