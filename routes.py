@@ -25,9 +25,9 @@ session = DBSession()
 '''
 # ('LIGHT (бесплатно)', 'MEDIUM (до 5000 руб.)', 'HARD (от 5000 до 10000 руб.)', 'PRO (выше 10000 руб.)')
 reading, writing = False, False
-token = os.environ['TOKEN']
-token2 = ''
-bot = telebot.TeleBot(token)
+#token = os.environ['TOKEN']
+token2 = '1570308085:AAFq8x1ciL4wN6UDf9Qg9FbNANeDyqBINB8'
+bot = telebot.TeleBot(token2)
 keyboard1 = telebot.types.ReplyKeyboardMarkup(True, True)
 keyboard1.row('РАБОТАДАТЕЛЬ', 'РЕКРУТЕР')
 keyboard2 = telebot.types.ReplyKeyboardMarkup(True, True)
@@ -44,7 +44,7 @@ keyboard6.row('ЗАКРЫТЬ ЗАЯВКУ', )
 keyboard7 = telebot.types.ReplyKeyboardMarkup(True, True)
 keyboard7.row('ПРОЙТИ РЕГИСТРАЦИЮ', )
 keyboard11 = telebot.types.ReplyKeyboardMarkup(True, True)
-keyboard11.row('ПРОЙТИ ОБУЧЕНИЕ', 'УЗНАТЬ ОБ ОСТАЛЬНЫХ УРОВНЯХ')
+keyboard11.row('ПРОЙТИ ОБУЧЕНИЕ', 'УЗНАТЬ ОБ ОСТАЛЬНЫХ УРОВНЯХ', 'ЗАПОЛНИТЬ РЕЗЮМЕ')
 keyboard8 = telebot.types.ReplyKeyboardMarkup(True, True)
 keyboard8.row('ДАЛЕЕ')
 keyboard9 = telebot.types.ReplyKeyboardMarkup(True, True)
@@ -247,7 +247,7 @@ def get_start_message(message):
             session.delete(form_request)
             session.commit()
             session.close()
-    bot.send_message(message.from_user.id, 'Выберите категорию:', reply_markup=keyboard1)
+    bot.send_message(message.from_user.id, 'Чтобы посмотреть доступные комманды введите /help. Выберите категорию:', reply_markup=keyboard1)
 
 
 @bot.message_handler(commands=['confirm'])
@@ -257,6 +257,16 @@ def confirm(message):
     for candid in candidates_list:
         if candid.contact != 'wait' and candid.contact != '':
             bot.send_message(message.from_user.id, '''Имя кандидата: {0}'''.format(candid.name))
+
+@bot.message_handler(commands=['help'])
+def confirm(message):
+    bot.send_message(message.from_user.id, '''Для работы с ботом можно использовать следующие команды:
+/start - начать работа
+/newform - заполнение новой заявки
+/forms - Ваши созданные вакансии
+/myforms - взятые вами в работу заявки (для рекрутеров)
+/confirm - кандидаты, ожидающие подтверждения выхода от работодателя (для рекрутеров)
+/getforms - получить доступные вам заявки (для рекрутеров)''')
 
 
 @bot.message_handler(commands=['myforms'])
@@ -334,7 +344,7 @@ def application_form(message):
         bot.send_message(message.from_user.id,
                          'Не тратьте время на поиск сотрудников. Делегируйте. Рекрутеры займутся этим вопросом за вас.',
                          reply_markup=keyboard2)
-    if message.text == 'ЗАПОЛНИТЬ ЗАЯВКУ':
+    if message.text == 'ЗАПОЛНИТЬ ЗАЯВКУ' or message.text == '/newform':
         session.add(form(user_id=message.from_user.id, category='wait'))
         session.commit()
         session.close()
@@ -408,7 +418,7 @@ def application_form(message):
             bot.send_message(message.from_user.id, 'Введите сумму вознаграждения')
     elif len(session.query(form).filter_by(user_id=message.from_user.id, salary=-100000).all()) > 0:  # done
         session.close()
-        current_form = session.query(form).filter_by(user_id=message.from_user.id, salary='wait').first()
+        current_form = session.query(form).filter_by(user_id=message.from_user.id, salary='-100000').first()
         try:
             salary = int(message.text)
             salaryflag = True
@@ -493,7 +503,7 @@ def application_form(message):
             telebot.types.InlineKeyboardButton(text='Удалить заявку',
                                                callback_data='delete_from' + ' ' + str(form_request.id)))
         bot.send_message(message.from_user.id,
-                         'заявка №{0} {1} добавлена в выдачу. Введите /start чтобы создать новую вакансию. Чтобы удалить заявку нажмите кнопку <Удалить заявку>. Чтобы просмотреть созданные вами заявки введите /forms'.format(
+                         'заявка №{0} {1} добавлена в выдачу. Введите /start или /newform чтобы создать новую вакансию. Чтобы удалить заявку нажмите кнопку <Удалить заявку>. Чтобы просмотреть созданные вами заявки введите /forms'.format(
                              str(form_request.id), form_request.vacancy, ), reply_markup=form_button)
         session.commit()
         session.close()
@@ -513,7 +523,7 @@ def application_form(message):
 
         bot.send_message(message.from_user.id,
                          '''Твой уровень LIGHT
-Закрой 3 позиции от разных работодателей по заявке уровня LIGHT (без оплаты) и переходи на следующий уровень. 
+Закрой 3 позиции от разных работодателей по заявке уровня LIGHT (без оплаты) и переходи на следующий уровень. Если вы считаете, что ваш уровень выше LIGHT, можете отправить свое резюме, модератор просмотрит его и определит ваш уровень вручную.
 ''',
                          reply_markup=keyboard11)
     elif message.text == 'ПРОЙТИ ОБУЧЕНИЕ':
@@ -536,6 +546,25 @@ HARD – заявки стоимостью от 5000 до 10000 руб. Пере
 PRO – заявки стоимостью от 10000 руб. Переход при закрытии 10-ти заявок любых работодателей на уровне HARD.
 ''',
                          reply_markup=keyboard11)
+    elif message.text == 'ЗАПОЛНИТЬ РЕЗЮМЕ':
+        if len(session.query(workers).filter_by(user_id=message.from_user.id).all()) == 0:
+            session.add(workers(user_id=message.from_user.id))
+            worker = session.query(workers).filter_by(user_id=message.from_user.id).first()
+            worker.level = 'moderate'
+            session.commit()
+            session.close()
+        bot.send_message(message.from_user.id,
+                         '''Введите ваше резюме или отправьте файлом, модератор рассмотрит его и выставит ваш уровень.
+''',)
+    elif  len(session.query(workers).filter_by(user_id=message.from_user.id, level='moderate').all()) > 0:
+        user_id = message.from_user.id
+        moderator_id = 176843983
+        level_table = telebot.types.InlineKeyboardMarkup()
+        level_table.add(telebot.types.InlineKeyboardButton(text= 'LIGHT', callback_data='mod' + ' ' + 'LIGHT' + ' ' + str(user_id)))
+        level_table.add(telebot.types.InlineKeyboardButton(text= 'MEDIUM', callback_data='mod' + ' ' 'MEDIUM' + ' ' + str(user_id)))
+        level_table.add(telebot.types.InlineKeyboardButton(text= 'HARD', callback_data='mod' + ' ''HARD' + ' ' + str(user_id)))
+        level_table.add(telebot.types.InlineKeyboardButton(text= 'PRO', callback_data='mod' + ' ''PRO' + ' ' + str(user_id)))
+        bot.send_message(moderator_id,  'Резюме рекрутера: \n {0} \n Выберите уровень рекутера'.format(message.text), reply_markup=level_table)
     elif message.text == 'ДАЛЕЕ':
         worker = session.query(workers).filter_by(user_id=message.from_user.id).first()
         if worker.educ_lvl == 1:
@@ -598,7 +627,7 @@ PRO – заявки стоимостью от 10000 руб. Переход пр
                          reply_markup=get_quiz_table(1, message.from_user.id))
 
     #получение заявок
-    elif message.text == 'ПОЛУЧИТЬ ВСЕ ЗАЯВКИ' and session.query(workers).filter_by(
+    elif (message.text == 'ПОЛУЧИТЬ ВСЕ ЗАЯВКИ' or message.text == '/getforms') and session.query(workers).filter_by(
         user_id=message.from_user.id).first().test_stage == 4:
         bot.send_message(message.from_user.id, 'В соответствии с вашим уровнем доступны следующие заявки:')
         worker = session.query(workers).filter_by(user_id=message.from_user.id).first()
@@ -1017,7 +1046,17 @@ def get_callback(call):
         session.close()
         bot.send_message(call.from_user.id, 'Заполните форму кандидата')
         bot.send_message(call.from_user.id, 'Введите имя кандидата')
-
+    elif call.data.split()[0] == 'mod':
+        level = call.data.split()[1]
+        work_id = call.data.split()[2]
+        worker = session.query(workers).filter_by(user_id=work_id).first()
+        worker.level = level
+        worker.test_stage = 4
+        worker.done = True
+        session.commit()
+        session.close()
+        bot.send_message(call.from_user.id, 'Уровень рекрутера выставлен')
+        bot.send_message(work_id, 'Вам назначен уровень: {0}. Нажмите ПОСМОТРЕТЬ ВСЕ ЗАЯВКИ, чтобы увидеть доступные вам заявки.'.format(level), reply_markup=keyboard10)
     elif call.data.split('+')[0] == 'category':
         bot.send_message(call.from_user.id, 'В выбранной категории вам доступны следующие заявки:')
         chosen_category = call.data.split('+')[1]
@@ -1060,6 +1099,9 @@ def get_callback(call):
         button_data = call.data[4:]
         button_full_text = all_answers_dict[button_data]
         bot.answer_callback_query(callback_query_id=call.id, show_alert=True, text=button_full_text)
+
+
+
     elif call.data == 'Accept' and session.query(workers).filter_by(user_id=call.from_user.id).first().test_stage == 1:
         worker = session.query(workers).filter_by(user_id=call.from_user.id).first()
         worker.test_stage = 2

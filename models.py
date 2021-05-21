@@ -88,6 +88,7 @@ DBSession = sessionmaker(bind=engine)
 DBSession.bind = engine
 session = DBSession()
 
+print('done')
 
 '''pay_level_list = {'LIGHT':[0, 0], 'MEDIUM':[1, 5000], 'HARD':[5000,10000], 'PRO':[10000, 100000]}
 def get_nickname(numb):
