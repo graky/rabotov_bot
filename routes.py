@@ -25,9 +25,9 @@ session = DBSession()
 '''
 # ('LIGHT (бесплатно)', 'MEDIUM (до 5000 руб.)', 'HARD (от 5000 до 10000 руб.)', 'PRO (выше 10000 руб.)')
 reading, writing = False, False
-#token = os.environ['TOKEN']
-token2 = '1570308085:AAFq8x1ciL4wN6UDf9Qg9FbNANeDyqBINB8'
-bot = telebot.TeleBot(token2)
+token = os.environ['TOKEN']
+token2 = ''
+bot = telebot.TeleBot(token)
 keyboard1 = telebot.types.ReplyKeyboardMarkup(True, True)
 keyboard1.row('РАБОТАДАТЕЛЬ', 'РЕКРУТЕР')
 keyboard2 = telebot.types.ReplyKeyboardMarkup(True, True)
