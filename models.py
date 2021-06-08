@@ -26,13 +26,13 @@ class form(Base):
     done = Column(Boolean, default=False)
     taken_in_work = Column(Boolean, default=False)
     category = Column(String)
-    # editing = Column(Boolean)
-
+    archive = Column(Boolean, default=False)
 
 class workers(Base):
     __tablename__ = 'worker'
     id = Column(Integer, primary_key=True)
     closed_tasks = Column(Integer, default=0)
+    closed_tasks_total = Column(Integer, default=0)
     level = Column(String, default='LIGHT')
     user_id = Column(Integer)
     educ_lvl = Column(Integer, default=0)
@@ -53,6 +53,8 @@ class workers(Base):
     third_test_3 = Column(Boolean, default=False)
     third_test_4 = Column(Boolean, default=False)
     done = Column(Boolean, default=False)
+
+
 class candidates(Base):
     __tablename__ = 'candidates'
     id = Column(Integer, primary_key=True)

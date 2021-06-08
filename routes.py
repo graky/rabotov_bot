@@ -5,12 +5,14 @@ from models import form, Base, workers, candidates
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from time import sleep
-
+import requests
+import json
 engine = create_engine(r'sqlite:///forms.db?check_same_thread=False')
 Base.metadata.bind = engine
 DBSession = sessionmaker(bind=engine)
 DBSession.bind = engine
 session = DBSession()
+telebot.apihelper.ENABLE_MIDDLEWARE = True
 '''
 
 user = os.environ.get('SQL_USER')
@@ -26,7 +28,6 @@ session = DBSession()
 # ('LIGHT (бесплатно)', 'MEDIUM (до 5000 руб.)', 'HARD (от 5000 до 10000 руб.)', 'PRO (выше 10000 руб.)')
 reading, writing = False, False
 token = os.environ['TOKEN']
-token2 = ''
 bot = telebot.TeleBot(token)
 keyboard1 = telebot.types.ReplyKeyboardMarkup(True, True)
 keyboard1.row('РАБОТАДАТЕЛЬ', 'РЕКРУТЕР')
@@ -269,6 +270,55 @@ def confirm(message):
 /getforms - получить доступные вам заявки (для рекрутеров)''')
 
 
+@bot.middleware_handler(update_types=['pre_checkout_query'])
+def update_handler(bot_instance, update):
+    print(update)
+    payload_data = update.invoice_payload
+    print(payload_data)
+    data = {'pre_checkout_query_id': update.id,
+            'ok': True,
+            }
+    responce = requests.post('https://api.telegram.org/bot' + token2 + '/answerPreCheckoutQuery', data=data)
+    candidate = session.query(candidates).filter_by(id=payload_data.split()[2]).first()
+    candidate.exit_proof = True
+    s_form = session.query(form).filter_by(id=payload_data.split()[3]).first()
+    worker = session.query(workers).filter_by(user_id=payload_data.split()[1]).first()
+    worker.closed_tasks = worker.closed_tasks + 1
+    worker.closed_tasks_total = worker.closed_tasks_total + 1
+    if worker.closed_tasks == 3 and worker.level == 'LIGHT':
+        worker.level = 'MEDIUM'
+        worker.closed_tasks = 0
+    elif worker.closed_tasks == 7 and worker.level == 'MEDIUM':
+        worker.level = 'HARD'
+        worker.closed_tasks = 0
+    elif worker.closed_tasks == 20 and worker.level == 'HARD':
+        worker.level = 'PRO'
+    session.commit()
+    bot.send_message(payload_data.split()[1], '''Выход вашего кандидата {0} подтверждён.  Вакансия: 
+                   Номер заявки: {1},
+                   Работодатель:{2},
+                   Категория: {8},
+                   Наименование вакансии: {3},
+                   Обязанности: {4},
+                   Требования: {5},
+                   Условия работы: {6},
+                   Сумма вознаграждения: {7},'''.format(
+        candidate.name,
+        str(s_form.id),
+        s_form.vacancy,
+        s_form.duties,
+        s_form.requirements,
+        s_form.conditions,
+        s_form.pay_level,
+        str(s_form.salary, ),
+        s_form.category, ))
+    s_form.archive = True
+    session.commit()
+    bot.send_message(update.from_user.id, 'Оплата подтверждена, выход кандидата подтвержден')
+    session.close()
+
+
+
 @bot.message_handler(commands=['myforms'])
 def get_start_message(message):
     worker = session.query(workers).filter_by(user_id=message.from_user.id).first()
@@ -279,35 +329,36 @@ def get_start_message(message):
         form_button.add(
             telebot.types.InlineKeyboardButton(text='ПРЕДЛОЖИТЬ КАНДИДАТА',
                                                callback_data='candidate' + ' ' + str(form_s.id)))
-        bot.send_message(message.from_user.id, '''Заявка:
-                Номер заявки: {0},
-                Работодатель:{7},
-                Наименование вакансии: {1},
-                Категория: {9},
-                Обязанности: {2},
-                Требования: {3},
-                Условия работы: {4},
-                Сумма вознаграждения: {6},
-                Взято в работу рекрутерами: {8}.
-                '''.format(
-            str(form_s.id),
-            form_s.vacancy,
-            form_s.duties,
-            form_s.requirements,
-            form_s.conditions,
-            form_s.pay_level,
-            str(form_s.salary),
-            form_s.nickname,
-            form_s.recruiter_count,
-            worker.closed_tasks,
-            str(3 - worker.closed_tasks),
-            str(form_s.category,),
-        ), reply_markup=form_button)
+        if form_s.archive == False:
+            bot.send_message(message.from_user.id, '''Заявка:
+                    Номер заявки: {0},
+                    Работодатель:{7},
+                    Наименование вакансии: {1},
+                    Категория: {9},
+                    Обязанности: {2},
+                    Требования: {3},
+                    Условия работы: {4},
+                    Сумма вознаграждения: {6},
+                    Взято в работу рекрутерами: {8}.
+                    '''.format(
+                str(form_s.id),
+                form_s.vacancy,
+                form_s.duties,
+                form_s.requirements,
+                form_s.conditions,
+                form_s.pay_level,
+                str(form_s.salary),
+                form_s.nickname,
+                form_s.recruiter_count,
+                worker.closed_tasks_total,
+                str(3 - worker.closed_tasks),
+                str(form_s.category,),
+            ), reply_markup=form_button)
 
 
 @bot.message_handler(commands=['forms'])
 def get_start_message(message):
-    forms = session.query(form).filter_by(user_id=message.from_user.id).all()
+    forms = session.query(form).filter_by(user_id=message.from_user.id, archive = False).all()
     bot.send_message(message.from_user.id, 'Ваши созданные вакансии:')
     for form_s in forms:
         form_button = telebot.types.InlineKeyboardMarkup()
@@ -410,6 +461,13 @@ def application_form(message):
             session.close()
             bot.send_message(message.from_user.id,
                              'В соотвествии с выбранным уровнем оплаты, вознаграждения работающему не предусмотрено. Введите ваш никнейм или номер телефон для контакта с работающим')
+        elif message.text != 'MEDIUM' and message.text != 'HARD' and message.text != 'PRO':
+            bot.send_message(message.from_user.id, '''Выберите уровень оплаты из предложенного списка, нажав на соответствующую кнопку.
+                   LIGHT (бесплатно), 
+                   MEDIUM (до 5000 руб.), 
+                   HARD (от 5000 до 10000 руб.), 
+                   PRO (выше 10000 руб.)
+                   ''', reply_markup=keyboard3)
         else:
             current_form.pay_level = message.text
             current_form.salary = -100000
@@ -632,7 +690,17 @@ PRO – заявки стоимостью от 10000 руб. Переход пр
         bot.send_message(message.from_user.id, 'В соответствии с вашим уровнем доступны следующие заявки:')
         worker = session.query(workers).filter_by(user_id=message.from_user.id).first()
         worker_level = worker.level
-        for s_form in session.query(form).filter_by(pay_level=worker_level).all():
+        if worker_level == 'LIGHT':
+            numb = 3
+            lvl = 'MEDIUM'
+        elif worker_level == 'MEDIUM':
+            numb = 7
+            lvl = 'HARD'
+        elif worker_level == 'HARD':
+            numb = 10
+            lvl = 'PRO'
+
+        for s_form in session.query(form).filter_by(pay_level=worker_level, active = True, archive = False).all():
             form_buttons = telebot.types.InlineKeyboardMarkup()
             form_buttons.add(
                 telebot.types.InlineKeyboardButton(text='ВЗЯТЬ В РАБОТУ', callback_data='work' + ' ' + str(s_form.id)),
@@ -648,7 +716,7 @@ PRO – заявки стоимостью от 10000 руб. Переход пр
             Условия работы: {4},
             Сумма вознаграждения: {6},
             Взято в работу рекрутерами: {8}.
-            Ваш уровень: закрытых заявок {9} ({10} заявки до перехода на уровень MEDIUM)
+            Ваш уровень: закрытых заявок {9} ({10} заявки до перехода на уровень {12})
                     '''.format(
                 str(s_form.id),
                 s_form.vacancy,
@@ -659,9 +727,10 @@ PRO – заявки стоимостью от 10000 руб. Переход пр
                 str(s_form.salary),
                 s_form.nickname,
                 s_form.recruiter_count,
-                worker.closed_tasks,
-                str(3 - worker.closed_tasks),
+                worker.closed_tasks_total,
+                str(numb - worker.closed_tasks),
                 s_form.category,
+                lvl
             ), reply_markup=form_buttons)
     elif message.text == 'ВЫБРАТЬ КАТЕГОРИЮ' and session.query(workers).filter_by(
         user_id=message.from_user.id).first().test_stage == 4:
@@ -809,7 +878,7 @@ PRO – заявки стоимостью от 10000 руб. Переход пр
             bot.send_message(message.from_user.id, 'Заявка отправлена работадателю')
             employee_id = session.query(form).filter_by(id=recrut.id_form).first().user_id
             form_id = recrut.id_form
-            worker_closed_tasks = session.query(workers).filter_by(user_id=recrut.worker_id).first().closed_tasks
+            worker_closed_tasks_total = session.query(workers).filter_by(user_id=recrut.worker_id).first().closed_tasks_total
             employee_buttons = telebot.types.InlineKeyboardMarkup()
             employee_buttons.add(telebot.types.InlineKeyboardButton(text='СОБЕСЕДОВАТЬ',
                                                                     callback_data='interview' + ' ' + str(
@@ -839,7 +908,7 @@ PRO – заявки стоимостью от 10000 руб. Переход пр
 Итоги встречи: {3},
 Оценка кандидата на соответствие предлагаемой должности:  {4}.
 Уровень рекрутера: закрытых заявок {5}.
-'''.format(recrut.name, recrut.interview, recrut.video_review, recrut.meeting_result, recrut.mark, worker_closed_tasks),
+'''.format(recrut.name, recrut.interview, recrut.video_review, recrut.meeting_result, recrut.mark, worker_closed_tasks_total),
                              reply_markup=employee_buttons)
 
 
@@ -855,41 +924,20 @@ def get_callback(call):
                                                   reply_markup=get_quiz_table(1, call.from_user.id))
                     break
     elif call.data.split()[0] == 'proof_exit':
+
         candidate = session.query(candidates).filter_by(id = call.data.split()[2]).first()
         candidate.exit_proof = True
         s_form = session.query(form).filter_by(id = call.data.split()[3]).first()
-        worker = session.query(workers).filter_by(user_id = call.data.split()[1]).first()
-        worker.closed_tasks = worker.closed_tasks + 1
-        if worker.closed_tasks == 3:
-            worker.level = 'MEDIUM'
-        elif worker.closed_tasks == 10:
-            worker.level = 'HARD'
-        elif worker.closed_tasks == 20:
-            worker.level = 'PRO'
-        session.commit()
-        bot.send_message(call.data.split()[1], '''Выход вашего кандидата {0} подтверждён.  Вакансия: 
-                Номер заявки: {1},
-                Работодатель:{2},
-                Категория: {8},
-                Наименование вакансии: {3},
-                Обязанности: {4},
-                Требования: {5},
-                Условия работы: {6},
-                Сумма вознаграждения: {7},'''.format(
-            candidate.name,
-            str(s_form.id),
-           s_form.vacancy,
-           s_form.duties,
-           s_form.requirements,
-           s_form.conditions,
-           s_form.pay_level,
-           str(s_form.salary,),
-        s_form.category,))
-
-        session.delete(s_form)
-        session.commit()
-        bot.send_message(call.from_user.id, 'Выход кандидата подтвержден')
-        session.close()
+        pay_data = {'chat_id': call.from_user.id,
+                'title': 'Оплата рекрутеру',
+                'description': s_form.vacancy,
+                'provider_token': '381764678:TEST:26472',
+                'currency': 'RUB',
+                'payload': call.data,
+                'prices': json.dumps([{'label': 'Руб', 'amount': 100000}]),
+                }
+        responce = requests.post('https://api.telegram.org/bot' + token2 + '/sendInvoice', data=pay_data)
+        bot.send_message(call.from_user.id, 'Подтвердите оплату рекрутеру')
     elif call.data.split()[0] == 'interview':
         interview_buttons = telebot.types.InlineKeyboardMarkup()
         interview_buttons.add(telebot.types.InlineKeyboardButton(text='аудио',
@@ -1062,6 +1110,15 @@ def get_callback(call):
         chosen_category = call.data.split('+')[1]
         worker = session.query(workers).filter_by(user_id=call.from_user.id).first()
         worker_level = worker.level
+        if worker_level == 'LIGHT':
+            numb = 3
+            lvl = 'MEDIUM'
+        elif worker_level == 'MEDIUM':
+            numb = 7
+            lvl = 'HARD'
+        elif worker_level == 'HARD':
+            numb = 10
+            lvl = 'PRO'
         for s_form in session.query(form).filter_by(pay_level=worker_level, category=chosen_category).all():
             form_buttons = telebot.types.InlineKeyboardMarkup()
             form_buttons.add(
@@ -1078,7 +1135,7 @@ def get_callback(call):
                     Условия работы: {4},
                     Сумма вознаграждения: {6},
                     Взято в работу рекрутерами: {8}.
-                    Ваш уровень: закрытых заявок {9} ({10} заявки до перехода на уровень MEDIUM)
+                    Ваш уровень: закрытых заявок {9} ({10} заявки до перехода на уровень {12})
                             '''.format(
                 str(s_form.id),
                 s_form.vacancy,
@@ -1089,9 +1146,10 @@ def get_callback(call):
                 str(s_form.salary),
                 s_form.nickname,
                 s_form.recruiter_count,
-                worker.closed_tasks,
-                str(3 - worker.closed_tasks),
+                worker.closed_tasks_total,
+                str(numb - worker.closed_tasks),
                 s_form.category,
+                lvl
             ), reply_markup=form_buttons)
 
 
