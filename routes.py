@@ -56,8 +56,7 @@ categs = ['Информационные технологии',
 
 # ('LIGHT (бесплатно)', 'MEDIUM (до 5000 руб.)', 'HARD (от 5000 до 10000 руб.)', 'PRO (выше 10000 руб.)')
 reading, writing = False, False
-# token = os.environ['TOKEN']
-token = '1750912576:AAHFYIs2DQp46NVxfMCuxvhZ2mrHbXupVi4'
+token = os.environ['TOKEN']
 bot = telebot.TeleBot(token)
 keyboard1 = telebot.types.ReplyKeyboardMarkup(True, True)
 keyboard1.row('РАБОТАДАТЕЛЬ', 'РЕКРУТЕР')
