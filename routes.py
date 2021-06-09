@@ -278,7 +278,7 @@ def update_handler(bot_instance, update):
     data = {'pre_checkout_query_id': update.id,
             'ok': True,
             }
-    responce = requests.post('https://api.telegram.org/bot' + token2 + '/answerPreCheckoutQuery', data=data)
+    responce = requests.post('https://api.telegram.org/bot' + token + '/answerPreCheckoutQuery', data=data)
     candidate = session.query(candidates).filter_by(id=payload_data.split()[2]).first()
     candidate.exit_proof = True
     s_form = session.query(form).filter_by(id=payload_data.split()[3]).first()
@@ -931,12 +931,12 @@ def get_callback(call):
         pay_data = {'chat_id': call.from_user.id,
                 'title': 'Оплата рекрутеру',
                 'description': s_form.vacancy,
-                'provider_token': '381764678:TEST:26472',
+                'provider_token': '381764678:TEST:26470',
                 'currency': 'RUB',
                 'payload': call.data,
                 'prices': json.dumps([{'label': 'Руб', 'amount': 100000}]),
                 }
-        responce = requests.post('https://api.telegram.org/bot' + token2 + '/sendInvoice', data=pay_data)
+        responce = requests.post('https://api.telegram.org/bot' + token + '/sendInvoice', data=pay_data)
         bot.send_message(call.from_user.id, 'Подтвердите оплату рекрутеру')
     elif call.data.split()[0] == 'interview':
         interview_buttons = telebot.types.InlineKeyboardMarkup()
