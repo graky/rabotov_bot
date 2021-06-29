@@ -57,6 +57,7 @@ categs = ['Информационные технологии',
 # ('LIGHT (бесплатно)', 'MEDIUM (до 5000 руб.)', 'HARD (от 5000 до 10000 руб.)', 'PRO (выше 10000 руб.)')
 reading, writing = False, False
 token = os.environ['TOKEN']
+token2 = ''
 bot = telebot.TeleBot(token)
 keyboard1 = telebot.types.ReplyKeyboardMarkup(True, True)
 keyboard1.row('РАБОТАДАТЕЛЬ', 'РЕКРУТЕР')
@@ -300,16 +301,18 @@ def confirm(message):
 /confirm - кандидаты, ожидающие подтверждения выхода от работодателя (для рекрутеров)
 /getforms - получить доступные вам заявки (для рекрутеров)''')
 
+@bot.pre_checkout_query_handler(func=lambda query: True)
+def checkout(pre_checkout_query):
+    print('check_get')
+    print(pre_checkout_query)
+    bot.answer_pre_checkout_query(pre_checkout_query.id, ok=True,
+                                  error_message='''Ошибка оплаты''')
 
-@bot.middleware_handler(update_types=['pre_checkout_query'])
-def update_handler(bot_instance, update):
-    print(update)
-    payload_data = update.invoice_payload
+@bot.message_handler(content_types=['successful_payment'])
+def got_payment(message):
+    print()
+    payload_data = message.successful_payment.invoice_payload
     print(payload_data)
-    data = {'pre_checkout_query_id': update.id,
-            'ok': True,
-            }
-    responce = requests.post('https://api.telegram.org/bot' + token + '/answerPreCheckoutQuery', data=data)
     candidate = session.query(candidates).filter_by(id=payload_data.split()[2]).first()
     candidate.exit_proof = True
     s_form = session.query(form).filter_by(id=payload_data.split()[3]).first()
@@ -326,14 +329,14 @@ def update_handler(bot_instance, update):
         worker.level = 'PRO'
     session.commit()
     bot.send_message(payload_data.split()[1], '''Выход вашего кандидата {0} подтверждён.  Вакансия: 
-                   Номер заявки: {1},
-                   Работодатель:{2},
-                   Категория: {8},
-                   Наименование вакансии: {3},
-                   Обязанности: {4},
-                   Требования: {5},
-                   Условия работы: {6},
-                   Сумма вознаграждения: {7},'''.format(
+                       Номер заявки: {1},
+                       Работодатель:{2},
+                       Категория: {8},
+                       Наименование вакансии: {3},
+                       Обязанности: {4},
+                       Требования: {5},
+                       Условия работы: {6},
+                       Сумма вознаграждения: {7},'''.format(
         candidate.name,
         str(s_form.id),
         s_form.vacancy,
@@ -345,8 +348,10 @@ def update_handler(bot_instance, update):
         s_form.category, ))
     s_form.archive = True
     session.commit()
-    bot.send_message(update.from_user.id, 'Оплата подтверждена, выход кандидата подтвержден')
+    bot.send_message(message.from_user.id, 'Оплата подтверждена, выход кандидата подтвержден')
     session.close()
+
+
 
 
 @bot.message_handler(commands=['myforms'])
@@ -969,7 +974,7 @@ def get_callback(call):
         pay_data = {'chat_id': call.from_user.id,
                     'title': 'Оплата рекрутеру',
                     'description': s_form.vacancy,
-                    'provider_token': '381764678:TEST:26470',
+                    'provider_token': '381764678:TEST:26472',
                     'currency': 'RUB',
                     'payload': call.data,
                     'prices': json.dumps([{'label': 'Руб', 'amount': 100000}]),
@@ -1283,6 +1288,8 @@ def get_callback(call):
             session.commit()
             session.close()
             bot.send_message(call.from_user.id, "Вы что-то упустили!", reply_markup=keyboard11)
+
+
 
 
 bot.polling(none_stop=True, interval=0)
