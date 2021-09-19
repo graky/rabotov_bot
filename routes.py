@@ -52,7 +52,8 @@ categs = ['Информационные технологии',
           'Домашний персонал',
           'Инсталляция и сервис',
           'Консультирование',
-          'Наука, образование']
+          'Наука, образование',
+          'Иное']
 
 # ('LIGHT (бесплатно)', 'MEDIUM (до 5000 руб.)', 'HARD (от 5000 до 10000 руб.)', 'PRO (выше 10000 руб.)')
 reading, writing = False, False
@@ -109,7 +110,7 @@ all_answers_dict = {'Telegram': 'Telegram', 'Соцсети, работные с
                     'Быть фрилансером': 'Быть фрилансером'
                     }
 
-pay_level_list = {'LIGHT': [0, 0], 'MEDIUM': [1, 5000], 'HARD': [5000, 10000], 'PRO': [10000, 100000]}
+pay_level_list = {'LIGHT': [0, 500], 'MEDIUM': [501, 5000], 'HARD': [5001, 10000], 'PRO': [10001, 100000]}
 
 
 def get_nickname(numb):
@@ -359,7 +360,7 @@ def get_start_message(message):
         form_button.add(
             telebot.types.InlineKeyboardButton(text='ПРЕДЛОЖИТЬ КАНДИДАТА',
                                                callback_data='candidate' + ' ' + str(form_s.id)))
-        if form_s.archive == False:
+        if not form_s.archive:
             bot.send_message(message.from_user.id, '''Заявка:
                     Номер заявки: {0},
                     Работодатель:{7},
@@ -422,8 +423,13 @@ def get_start_message(message):
 @bot.message_handler(content_types=['text'])
 def application_form(message):
     if message.text == 'РАБОТАДАТЕЛЬ':
+        first_name = message.from_user.first_name
+        last_name = message.from_user.last_name
+        username = first_name + ' ' + last_name
+        hello_text = 'Приветствуем %s Не тратьте время на поиск сотрудников. Делегируйте. Рекрутеры займутся этим ' \
+                     'вопросом за вас.' % username
         bot.send_message(message.from_user.id,
-                         'Не тратьте время на поиск сотрудников. Делегируйте. Рекрутеры займутся этим вопросом за вас.',
+                         hello_text,
                          reply_markup=keyboard2)
     if message.text == 'ЗАПОЛНИТЬ ЗАЯВКУ' or message.text == '/newform':
         session.add(form(user_id=message.from_user.id, category='wait'))
@@ -443,7 +449,7 @@ def application_form(message):
         current_form.vacancy = 'wait'
         session.commit()
         session.close()
-        bot.send_message(message.from_user.id, 'Введите название вакансии')
+        bot.send_message(message.from_user.id, 'Введите наименование вакантной должности')
 
     elif len(session.query(form).filter_by(user_id=message.from_user.id, vacancy='wait').all()) > 0:  # done
         session.close()
@@ -452,7 +458,7 @@ def application_form(message):
         current_form.duties = 'wait'
         session.commit()
         session.close()
-        bot.send_message(message.from_user.id, 'Введите обязанности работающего')
+        bot.send_message(message.from_user.id, 'Введите обязанности будущего сотрудника')
 
     elif len(session.query(form).filter_by(user_id=message.from_user.id, duties='wait').all()) > 0:  # done
         session.close()
@@ -461,7 +467,7 @@ def application_form(message):
         current_form.requirements = 'wait'
         session.commit()
         session.close()
-        bot.send_message(message.from_user.id, 'Введите требования для работающего')
+        bot.send_message(message.from_user.id, 'Введите требования для будущего сотрудника')
 
     elif len(session.query(form).filter_by(user_id=message.from_user.id, requirements='wait').all()) > 0:  # done
         session.close()
@@ -470,7 +476,7 @@ def application_form(message):
         current_form.conditions = 'wait'
         session.commit()
         session.close()
-        bot.send_message(message.from_user.id, 'Введите условия работы')
+        bot.send_message(message.from_user.id, 'Какие условия работы вы готовы предложить будущему сотруднику')
     elif len(session.query(form).filter_by(user_id=message.from_user.id, conditions='wait').all()) > 0:  # done
         session.close()
         current_form = session.query(form).filter_by(user_id=message.from_user.id, conditions='wait').first()
@@ -479,36 +485,37 @@ def application_form(message):
         session.commit()
         session.close()
         bot.send_message(message.from_user.id, '''Выберите уровень оплаты.
-        LIGHT (бесплатно), 
-        MEDIUM (до 5000 руб.), 
-        HARD (от 5000 до 10000 руб.), 
+        LIGHT (до 500 рублей), 
+        MEDIUM (от 501 до 5000 руб.), 
+        HARD (от 5001 до 10000 руб.), 
         PRO (выше 10000 руб.)
         ''', reply_markup=keyboard3)
 
     elif len(session.query(form).filter_by(user_id=message.from_user.id, pay_level='wait').all()) > 0:  # done
         session.close()
         current_form = session.query(form).filter_by(user_id=message.from_user.id, pay_level='wait').first()
-        if message.text == 'LIGHT':
+        """if message.text == 'LIGHT':
             current_form.pay_level = message.text
             current_form.salary = 0
             current_form.nickname = 'wait'
             session.commit()
             session.close()
             bot.send_message(message.from_user.id,
-                             'В соотвествии с выбранным уровнем оплаты, вознаграждения работающему не предусмотрено. Введите ваш никнейм или номер телефон для контакта с работающим')
-        elif message.text != 'MEDIUM' and message.text != 'HARD' and message.text != 'PRO':
+                             'В соотвествии с выбранным уровнем оплаты, вознаграждения работающему не предусмотрено. Введите ваш никнейм или номер телефон для контакта с работающим')"""
+        if message.text not in pay_level_list.keys():
             bot.send_message(message.from_user.id, '''Выберите уровень оплаты из предложенного списка, нажав на соответствующую кнопку.
-                   LIGHT (бесплатно), 
+                   LIGHT (до 500 рублей), 
                    MEDIUM (до 5000 руб.), 
                    HARD (от 5000 до 10000 руб.), 
                    PRO (выше 10000 руб.)
                    ''', reply_markup=keyboard3)
-        else:
-            current_form.pay_level = message.text
-            current_form.salary = -100000
-            session.commit()
-            session.close()
-            bot.send_message(message.from_user.id, 'Введите сумму вознаграждения')
+
+        current_form.pay_level = message.text
+        current_form.salary = -100000
+        session.commit()
+        session.close()
+        bot.send_message(message.from_user.id, 'Введите сумму вознаграждения')
+
     elif len(session.query(form).filter_by(user_id=message.from_user.id, salary=-100000).all()) > 0:  # done
         session.close()
         current_form = session.query(form).filter_by(user_id=message.from_user.id, salary='-100000').first()
@@ -519,10 +526,24 @@ def application_form(message):
             salaryflag = False
             bot.send_message(message.from_user.id, 'Введите вознаграждение одним числом без букв')
         if salaryflag:
-            if current_form.pay_level == 'MEDIUM':
-                if salary > 5000 or (salary < 1):
+            if current_form.pay_level == 'LIGHT':
+                if salary > pay_level_list['LIGHT'][1] or salary < pay_level_list['LIGHT'][0]:
                     bot.send_message(message.from_user.id,
-                                     'вознаграждение рукретеру уровня MEDIUM от 1 до 5000 руб. Проверьте сумму и повторите отправку.')
+                                     'вознаграждение рукретеру уровня LIGHT от 1 до 500 руб. Проверьте сумму и '
+                                     'повторите отправку.')
+                else:
+                    current_form.salary = salary
+                    current_form.nickname = 'wait'
+                    session.commit()
+                    session.close()
+                    bot.send_message(message.from_user.id,
+                                     'Введите ваш никнейм или номер телефон для контакта с работающим')
+
+            elif current_form.pay_level == 'MEDIUM':
+                if salary > pay_level_list['MEDIUM'][1] or salary < pay_level_list['MEDIUM'][0]:
+                    bot.send_message(message.from_user.id,
+                                     'вознаграждение рукретеру уровня MEDIUM от 500 до 5000 руб. Проверьте сумму и '
+                                     'повторите отправку.')
                 else:
                     current_form.salary = salary
                     current_form.nickname = 'wait'
@@ -531,9 +552,10 @@ def application_form(message):
                     bot.send_message(message.from_user.id,
                                      'Введите ваш никнейм или номер телефон для контакта с работающим')
             elif current_form.pay_level == 'HARD':
-                if salary < 5000 or salary > 10000:
+                if salary > pay_level_list['HARD'][1] or salary < pay_level_list['HARD'][0]:
                     bot.send_message(message.from_user.id,
-                                     'вознаграждение рукретеру уровня HARD от 5000 до 10000 руб. Проверьте сумму и повторите отправку.')
+                                     'вознаграждение рукретеру уровня HARD от 5000 до 10000 руб. Проверьте сумму и '
+                                     'повторите отправку.')
                 else:
                     current_form.salary = salary
                     current_form.nickname = 'wait'
@@ -542,9 +564,10 @@ def application_form(message):
                     bot.send_message(message.from_user.id,
                                      'Введите ваш никнейм или номер телефон для контакта с работающим')
             elif current_form.pay_level == 'PRO':
-                if salary < 10000:
+                if salary < pay_level_list['PRO'][0]:
                     bot.send_message(message.from_user.id,
-                                     'вознаграждение рукретеру уровня PRO от 10000 руб. Проверьте сумму и повторите отправку.')
+                                     'вознаграждение рукретеру уровня PRO от 10000 руб. Проверьте сумму и повторите '
+                                     'отправку.')
                 else:
                     current_form.salary = salary
                     current_form.nickname = 'wait'
@@ -596,27 +619,37 @@ def application_form(message):
             telebot.types.InlineKeyboardButton(text='Удалить заявку',
                                                callback_data='delete_from' + ' ' + str(form_request.id)))
         bot.send_message(message.from_user.id,
-                         'заявка №{0} {1} добавлена в выдачу. Введите /start или /newform чтобы создать новую вакансию. Чтобы удалить заявку нажмите кнопку <Удалить заявку>. Чтобы просмотреть созданные вами заявки введите /forms'.format(
+                         'заявка №{0} {1} добавлена в выдачу. Введите /start или /newform чтобы создать новую '
+                         'вакансию. Чтобы удалить заявку нажмите кнопку <Удалить заявку>. Чтобы просмотреть созданные '
+                         'вами заявки введите /forms'.format(
                              str(form_request.id), form_request.vacancy, ), reply_markup=form_button)
         session.commit()
         session.close()
 
-
-
     elif message.text == 'РЕКРУТЕР':
         if len(session.query(workers).filter_by(user_id=message.from_user.id).all()) == 0:
+            first_name = message.from_user.first_name
+            last_name = message.from_user.last_name
+            username = first_name + ' ' + last_name
+            hello_text = 'Привет %s Я Rabotov Bot. Рад видеть тебя! Заработай больше на поиске персонала. ' \
+                         'Закрывай заявки в любое время. Делай то, что тебе нравится!' % username
             bot.send_message(message.from_user.id,
-                             'Заработай больше на поиске персонала. Закрывай заявки в любое время. Делай то, что тебе нравится.',
+                             hello_text,
                              reply_markup=keyboard7)
         else:
+            first_name = message.from_user.first_name
+            last_name = message.from_user.last_name
+            username = first_name + ' ' + last_name
+            hello_text = 'C возвращением %s Вы уже зарегистрированы. ' \
+                         'Для получения вакансий нажмите ПОЛУЧИТЬ ЗАЯВКИ.' % username
             bot.send_message(message.from_user.id,
-                             'Вы уже зарегистрированы. Для получения вакансий нажмите ПОЛУЧИТЬ ЗАЯВКИ.',
+                             hello_text,
                              reply_markup=keyboard10)
     elif message.text == 'ПРОЙТИ РЕГИСТРАЦИЮ':
 
         bot.send_message(message.from_user.id,
                          '''Твой уровень LIGHT
-Закрой 3 позиции от разных работодателей по заявке уровня LIGHT (без оплаты) и переходи на следующий уровень. Если вы считаете, что ваш уровень выше LIGHT, можете отправить свое резюме, модератор просмотрит его и определит ваш уровень вручную.
+Закрой 3 позиции от разных работодателей по заявке уровня LIGHT (до 500 рублей) и переходи на следующий уровень. Если вы считаете, что ваш уровень выше LIGHT, можете отправить свое резюме, модератор просмотрит его и определит ваш уровень вручную.
 ''',
                          reply_markup=keyboard11)
     elif message.text == 'ПРОЙТИ ОБУЧЕНИЕ':
@@ -696,7 +729,8 @@ PRO – заявки стоимостью от 10000 руб. Переход пр
             session.commit()
             session.close()
             bot.send_message(message.from_user.id,
-                             '''Самый простой и популярный инструмент для проведения онлайн встреч это zoom. Используйте его в работе. Инструкция по работе с zoom (ссылка на видео).''',
+                             '''Самый простой и популярный инструмент для проведения онлайн встреч это zoom. 
+                             Используйте его в работе. Инструкция по работе с zoom (ссылка на видео).''',
                              reply_markup=keyboard8)
 
         elif worker.educ_lvl == 4:
