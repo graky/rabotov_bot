@@ -1,4 +1,4 @@
 #!/bin/sh
 
 python /app/models.py
-python /app/routes.py
+python /app/bot.py

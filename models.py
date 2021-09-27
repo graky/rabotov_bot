@@ -9,108 +9,181 @@ from os import environ
 Base = declarative_base()
 
 
-class form(Base):
-    __tablename__ = 'form'
+class User(Base):
+    __tablename__ = "user"
+    telegram_id = Column(Integer, primary_key=True)
+    employer = relationship("Employer", back_populates="user")
+    recruiter = relationship("Recruiter", back_populates="user")
+    answer = relationship("Answer", back_populates="user")
+    superuser = Column(Boolean, default=False)
+
+
+class Employer(Base):
+    __tablename__ = 'employer'
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer)
-    vacancy = Column(String)
+    user_id = Column(Integer, ForeignKey('user.telegram_id'))
+    user = relationship("User", back_populates="employer")
+    vacancies = relationship("Vacancy")
+
+
+class Vacancy(Base):
+    __tablename__ = 'vacancy'
+    id = Column(Integer, primary_key=True)
+    employer_id = Column(Integer, ForeignKey('employer.id'))
+    employer = relationship("Employer", back_populates="vacancies")
+    company = Column(String)
+    website = Column(String)
+    name = Column(String)
     duties = Column(String)
     requirements = Column(String)
     conditions = Column(String)
     pay_level = Column(String)
+    numb_level = Column(Integer)
     salary = Column(Integer)
-    nickname = Column(String)
-    just_finished = Column(Boolean, default=False)
-    active = Column(Boolean)
-    recruiter_count = Column(Integer, default=0)
-    done = Column(Boolean, default=False)
-    taken_in_work = Column(Boolean, default=False)
-    category = Column(String)
-    archive = Column(Boolean, default=False)
+    finite_state = Column(Integer, default=0)
+    active = Column(Boolean, default=False)
+    inwork = relationship("InWork", back_populates="vacancy")
 
-class workers(Base):
-    __tablename__ = 'worker'
+    def __repr__(self):
+        form = """
+Заявка на подбор персонала : {0}
+
+Компания: {1} {2}
+
+Наименование вакансии: {3}
+
+Обязанности: {4}
+
+Требования:
+
+{5}
+
+Условия:
+
+{6}
+
+Уровень вознаграждения за подбор: {7}
+
+Сумма вознаграждения: {8}
+"""
+        form = form.format(
+            self.id,
+            self.company,
+            self.website,
+            self.name,
+            self.duties,
+            self.requirements,
+            self.conditions,
+            self.pay_level,
+            self.salary)
+        return form
+
+
+class Recruiter(Base):
+    __tablename__ = 'recruiter'
     id = Column(Integer, primary_key=True)
-    closed_tasks = Column(Integer, default=0)
-    closed_tasks_total = Column(Integer, default=0)
-    level = Column(String, default='LIGHT')
-    user_id = Column(Integer)
-    educ_lvl = Column(Integer, default=0)
-    list_of_forms = Column(String, default='')
-    test_stage = Column(Integer, default=0)
-    first_test_1 = Column(Boolean, default=False)
-    first_test_2 = Column(Boolean, default=False)
-    first_test_3 = Column(Boolean, default=False)
-    first_test_4 = Column(Boolean, default=False)
-    first_test_5 = Column(Boolean, default=False)
-    first_test_6 = Column(Boolean, default=False)
-    second_test_1 = Column(Boolean, default=False)
-    second_test_2 = Column(Boolean, default=False)
-    second_test_3 = Column(Boolean, default=False)
-    second_test_4 = Column(Boolean, default=False)
-    third_test_1 = Column(Boolean, default=False)
-    third_test_2 = Column(Boolean, default=False)
-    third_test_3 = Column(Boolean, default=False)
-    third_test_4 = Column(Boolean, default=False)
-    done = Column(Boolean, default=False)
+    user_id = Column(Integer, ForeignKey('user.telegram_id'))
+    user = relationship("User", back_populates="recruiter")
+    level = Column(String)
+    level_numb = Column(Integer)
+    resume = relationship("Resume", back_populates="recruiter")
+    finished_educ = Column(Boolean, default=False)
+    inwork = relationship("InWork", back_populates="recruiter")
 
-
-class candidates(Base):
-    __tablename__ = 'candidates'
+class Resume(Base):
+    __tablename__ = "resume"
     id = Column(Integer, primary_key=True)
-    id_form = Column(Integer)
-    worker_id = Column(Integer)
-    name = Column(String)
-    interview = Column(String)
-    video_review = Column(String)
-    meeting_result = Column(String)
-    mark = Column(String, default='wait')
-    contact = Column(String)
-    exit_proof = Column(Boolean, default=False)
-    link_wait = Column(Boolean, default= False)
+    recruiter_id = Column(Integer, ForeignKey('recruiter.id'))
+    recruiter = relationship("Recruiter", back_populates="resume")
+    fio = Column(String)
+    years = Column(String)
+    specialization = Column(String)
+    tools = Column(String)
+    difficulties = Column(String)
+    invitation = Column(String)
+    letter = Column(String)
+    refusal = Column(String)
+    reviewed = Column(Boolean, default=False)
+
+    def __repr__(self):
+        resume = """
+- Ваше ФИО\n
+{0}\n
+- Сколько лет вы в подборе\n
+{1}\n
+- В какой области вы специализируетесь\n
+{2}\n
+- Какими инструментами пользуетесь при подборе\n
+{3}\n
+- С какими трудностями сталкивались при подборе\n
+{4}\n
+- Напишите краткое приглашение соискателю на вакансию\n
+{5}\n
+- Вы не можете долго закрыть заявку и понимаете, что заработная плата не в рынке. Напишите письмо работодателю с предложением откорректировать заявку.\n
+{6}\n
+- Не все соискатели подошли. Как вы откажете соискателю\n
+{7} \n
+"""
+        resume = resume.format(
+            self.fio,
+            self.years,
+            self.specialization,
+            self.tools,
+            self.difficulties,
+            self.invitation,
+            self.letter,
+            self.refusal,
+        )
+        return resume
 
 
-'''
-user = os.environ.get('SQL_USER')
-password = os.environ.get('SQL_PASSWORD')
-db_name = os.environ.get('SQL_DATABASE')
-db_host = os.environ.get('SQL_HOST')
+class Question(Base):
+    __tablename__ = "question"
+    poll_id = Column(String, primary_key=True)
+    question = Column(String)
+
+
+class Answer(Base):
+    __tablename__ = "answer"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('user.telegram_id'))
+    user = relationship("User", back_populates="answer")
+    score = Column(Integer, default=0)
+
+
+class InWork(Base):
+    __tablename__ = "inwork"
+    id = Column(Integer, primary_key=True)
+    recruiter_id = Column(Integer, ForeignKey('recruiter.id'))
+    recruiter = relationship("Recruiter", back_populates="inwork")
+    vacancy_id = Column(Integer, ForeignKey('vacancy.id'))
+    vacancy = relationship("Vacancy", back_populates="inwork")
+
+
+def get_or_create(session, model, **kwargs):
+    instance = session.query(model).filter_by(**kwargs).one_or_none()
+    if instance:
+        return instance
+    else:
+        instance = model(**kwargs)
+        session.add(instance)
+        session.commit()
+        return instance
+
+
+
+
+"""user = "postgre"
+password = "postgre"
+db_name = "bot"
+db_host = "localhost"""
+user = os.environ['SQL_USER']
+password = os.environ['SQL_PASSWORD']
+db_name = os.environ['SQL_DATABASE']
+db_host = os.environ['SQL_HOST']
 engine = create_engine('postgresql+psycopg2://%s:%s@%s/%s' % (str(user), str(password), str(db_host), str(db_name)))
 Base.metadata.create_all(engine)
 Base.metadata.bind = engine
 DBSession = sessionmaker(bind=engine)
 DBSession.bind = engine
 session = DBSession()
-'''
-
-engine = create_engine(r'sqlite:///forms.db')
-Base.metadata.create_all(engine)
-Base.metadata.bind = engine
-DBSession = sessionmaker(bind=engine)
-DBSession.bind = engine
-session = DBSession()
-
-print('done')
-
-'''pay_level_list = {'LIGHT':[0, 0], 'MEDIUM':[1, 5000], 'HARD':[5000,10000], 'PRO':[10000, 100000]}
-def get_nickname(numb):
-    nick = '@nickname' + str(numb)
-    phone = '+7' + str(random.randint(9000000000, 9999999999))
-    return random.choice([nick, phone])
-for i in range(30):
-    key = random.choice(list(pay_level_list.keys()))
-    value = random.randint(pay_level_list[key][0], pay_level_list[key][1])
-    session.add(form(user_id=i,
-                     vacancy='Тестовая вакансия {0}'.format(str(i)),
-                     category='Тестовая категория {0}'.format(str(i)),
-                     duties='Выполнять работу {0}'.format(str(i)),
-                     requirements='необходимые требования{0}'.format(str(i)),
-                     conditions='необходимые условия {0}'.format(str(i)),
-                     pay_level=key,
-                     salary=value,
-                     nickname=get_nickname(i),
-                     active=True))
-    session.commit()
-    session.close()
-print('done')
-'''
