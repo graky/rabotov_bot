@@ -475,7 +475,7 @@ async def recruiter_start(message: types.Message):
             await message.answer(text_question, reply_markup=level_recruiter_board)
         else:
             await message.answer(
-                "У вас уже есть профиль рекрутера, выберите команду /placeholder чтобы получить заявки")
+                "У вас уже есть профиль рекрутера, выберите команду /get_vacancies чтобы получить заявки")
 
 
 @dp.message_handler(state=RecruiterRegistry.register)
