@@ -1,6 +1,6 @@
 import logging
 import os
-from models import Base, User, Employer, Vacancy, Recruiter, Resume, Question, Answer, InWork
+from models import Base, User, Employer, Vacancy, Recruiter, Resume, Question, Answer, InWork, Category
 from models import get_or_create
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -10,23 +10,26 @@ from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
 
-
 API_TOKEN = os.environ['TOKEN']
 ADMIN_KEY = "d873ec68-2729-4c5d-9753-39540c011c75"
 logging.basicConfig(level=logging.INFO)
 storage = MemoryStorage()
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(bot, storage=storage)
-"""user = "postgre"
+
+"""
+user = "postgre"
 password = "postgre"
 db_name = "bot"
-db_host = "localhost"""
+db_host = "localhost"
+engine = create_engine(r'sqlite:///forms.db')
+"""
 user = os.environ['SQL_USER']
 password = os.environ['SQL_PASSWORD']
 db_name = os.environ['SQL_DATABASE']
 db_host = os.environ['SQL_HOST']
-print('postgresql+psycopg2://%s:%s@%s/%s' % (str(user), str(password), str(db_host), str(db_name)))
 engine = create_engine('postgresql+psycopg2://%s:%s@%s/%s' % (str(user), str(password), str(db_host), str(db_name)))
+
 Base.metadata.bind = engine
 DBSession = sessionmaker(bind=engine)
 DBSession.bind = engine
@@ -70,10 +73,10 @@ question1 = ["Я буду искать кандидатов",
 
 question2 = ["Прежде, чем отправить кандидата на рассмотрение работодателю, я",
              [
-                "Проведу телефонное интервью",
-                "Созвонюсь по видео связи",
-                "Встречусь вживую при необходимости",
-                "Только пообщаюсь по переписке",
+                 "Проведу телефонное интервью",
+                 "Созвонюсь по видео связи",
+                 "Встречусь вживую при необходимости",
+                 "Только пообщаюсь по переписке",
 
              ],
              False,
@@ -81,10 +84,10 @@ question2 = ["Прежде, чем отправить кандидата на р
 
 question3 = ["Для того, чтобы начать зарабатывать на закрытии заявок мне нужно",
              [
-                "Быть ИП",
-                "Иметь юр лицо",
-                "Открыть самозанятость",
-                "Быть фрилансером",
+                 "Быть ИП",
+                 "Иметь юр лицо",
+                 "Открыть самозанятость",
+                 "Быть фрилансером",
 
              ],
              False,
@@ -115,6 +118,7 @@ class AdminState(StatesGroup):
 
 
 class EmployerState(StatesGroup):
+    category = State()
     company = State()
     website = State()
     name = State()
@@ -157,25 +161,20 @@ async def become_admin(message: types.Message):
 async def get_vacancies(message: types.Message):
     if recruiter := session.query(Recruiter).filter_by(user_id=message.from_user.id).first():
         if recruiter.finished_educ:
-            vacancies = session.query(Vacancy).filter(
-                Vacancy.numb_level <= recruiter.level_numb,
-                Vacancy.active == True
-            ).all()
-            for vacancy in vacancies:
-                recruiter_buttons = types.InlineKeyboardMarkup()
-                recruiter_buttons.add(
-                    types.InlineKeyboardButton("ВЗЯТЬ В РАБОТУ",
-                                               callback_data="in_work " + f"{vacancy.id} " + f"{recruiter.id}"),
-                    types.InlineKeyboardButton("ПРЕДЛОЖИТЬ КАНДИДАТА",
-                                               callback_data="add_cand " + f"{vacancy.id} " + f"{recruiter.id}"),
-                )
-                await message.answer(vacancy, reply_markup=recruiter_buttons)
+            vacancy_buttons = types.InlineKeyboardMarkup()
+            vacancy_buttons.add(
+                types.InlineKeyboardButton("ВСЕ ВАКАНСИИ",
+                                           callback_data="vacancies " + f"{recruiter.id} " + "all"),
+                types.InlineKeyboardButton("ВЫБРАТЬ КАТЕГОРИЮ",
+                                           callback_data="categories " + f"{recruiter.id}")
+            )
+            await message.answer("Вы хотите ", reply_markup=vacancy_buttons)
         else:
             await message.answer("""Вы ещё не прошли обучение. 
-Чтобы пройти обучение, воспользуйтесь командой /start далее выберите РЕКРУТЕР и следуйте инструкциям.""")
+            Чтобы пройти обучение, воспользуйтесь командой /start далее выберите РЕКРУТЕР и следуйте инструкциям.""")
     else:
         await message.answer("""У вас ещё  нет профиля рекрутера. 
-Чтобы создать профиль рекрутера, воспользуйтесь командой /start далее выберите РЕКРУТЕР и следуйте инструкциям.""")
+        Чтобы создать профиль рекрутера, воспользуйтесь командой /start далее выберите РЕКРУТЕР и следуйте инструкциям.""")
 
 
 @dp.message_handler(commands=['in_work'])
@@ -252,18 +251,24 @@ async def vacancy_start(message: types.Message):
     if employer := session.query(Employer).filter_by(user_id=message.from_user.id).first():
         session.add(Vacancy(employer=employer, finite_state=1))
         session.commit()
-        session.close()
-        text = "Введите наименование компании"
+        text = "Выберите категорию"
         await message.answer(text)
-        await EmployerState.company.set()
+        categories = session.query(Category).all()
+        for category in categories:
+            category_buttons = types.InlineKeyboardMarkup()
+            category_buttons.add(
+                types.InlineKeyboardButton("ВЫБРАТЬ КАТЕГОРИЮ",
+                                           callback_data="set_vacancy " + f"{message.from_user.id} " + f"{category.category_id}")
+            )
+            await bot.send_message(message.from_user.id, category.name, reply_markup=category_buttons)
 
 
 @dp.message_handler(state=EmployerState.company)
 async def set_company(message: types.Message, state: FSMContext):
     employer = session.query(Employer).filter_by(user_id=message.from_user.id).first()
-    vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=1).first()
+    vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=2).first()
     vacancy.company = message.text
-    vacancy.finite_state = 2
+    vacancy.finite_state = 3
     session.commit()
     session.close()
     await EmployerState.next()
@@ -273,9 +278,9 @@ async def set_company(message: types.Message, state: FSMContext):
 @dp.message_handler(state=EmployerState.website)
 async def set_website(message: types.Message, state: FSMContext):
     employer = session.query(Employer).filter_by(user_id=message.from_user.id).first()
-    vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=2).first()
+    vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=3).first()
     vacancy.website = message.text
-    vacancy.finite_state = 3
+    vacancy.finite_state = 4
     session.commit()
     session.close()
     await EmployerState.next()
@@ -285,9 +290,9 @@ async def set_website(message: types.Message, state: FSMContext):
 @dp.message_handler(state=EmployerState.name)
 async def set_name(message: types.Message, state: FSMContext):
     employer = session.query(Employer).filter_by(user_id=message.from_user.id).first()
-    vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=3).first()
+    vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=4).first()
     vacancy.name = message.text
-    vacancy.finite_state = 4
+    vacancy.finite_state = 5
     session.commit()
     session.close()
     await EmployerState.next()
@@ -297,9 +302,9 @@ async def set_name(message: types.Message, state: FSMContext):
 @dp.message_handler(state=EmployerState.duties)
 async def set_duties(message: types.Message, state: FSMContext):
     employer = session.query(Employer).filter_by(user_id=message.from_user.id).first()
-    vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=4).first()
+    vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=5).first()
     vacancy.duties = message.text
-    vacancy.finite_state = 5
+    vacancy.finite_state = 6
     session.commit()
     session.close()
     await EmployerState.next()
@@ -316,9 +321,9 @@ async def set_duties(message: types.Message, state: FSMContext):
 @dp.message_handler(state=EmployerState.requirements)
 async def set_requirements(message: types.Message, state: FSMContext):
     employer = session.query(Employer).filter_by(user_id=message.from_user.id).first()
-    vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=5).first()
+    vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=6).first()
     vacancy.requirements = message.text
-    vacancy.finite_state = 6
+    vacancy.finite_state = 7
     session.commit()
     session.close()
     await EmployerState.next()
@@ -335,9 +340,9 @@ async def set_requirements(message: types.Message, state: FSMContext):
 @dp.message_handler(state=EmployerState.conditions)
 async def set_conditions(message: types.Message, state: FSMContext):
     employer = session.query(Employer).filter_by(user_id=message.from_user.id).first()
-    vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=6).first()
+    vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=7).first()
     vacancy.conditions = message.text
-    vacancy.finite_state = 7
+    vacancy.finite_state = 8
     session.commit()
     session.close()
     await EmployerState.next()
@@ -355,11 +360,11 @@ PRO ( выше 10000 руб.)""", reply_markup=pay_level_keyboard)
 @dp.message_handler(state=EmployerState.level)
 async def set_level(message: types.Message, state: FSMContext):
     employer = session.query(Employer).filter_by(user_id=message.from_user.id).first()
-    vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=7).first()
+    vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=8).first()
     if message.text in pay_level_list:
         vacancy.pay_level = message.text
         vacancy.numb_level = pay_level_dict[message.text][1]
-        vacancy.finite_state = 8
+        vacancy.finite_state = 9
         session.commit()
         session.close()
         await EmployerState.next()
@@ -371,7 +376,7 @@ async def set_level(message: types.Message, state: FSMContext):
 @dp.message_handler(state=EmployerState.salary)
 async def set_salary(message: types.Message, state: FSMContext):
     employer = session.query(Employer).filter_by(user_id=message.from_user.id).first()
-    vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=8).first()
+    vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=9).first()
     try:
         salary = int(message.text)
     except ValueError:
@@ -380,7 +385,7 @@ async def set_salary(message: types.Message, state: FSMContext):
     pay_level = vacancy.pay_level
     if pay_level_dict[pay_level][0][0] <= salary <= pay_level_dict[pay_level][0][1]:
         vacancy.salary = salary
-        vacancy.finite_state = 9
+        vacancy.finite_state = 10
         session.commit()
         await EmployerState.next()
         await message.answer("""Вами выбран уровень {0}! 
@@ -400,16 +405,16 @@ async def set_salary(message: types.Message, state: FSMContext):
 @dp.message_handler(state=EmployerState.activate)
 async def set_activate(message: types.Message, state: FSMContext):
     employer = session.query(Employer).filter_by(user_id=message.from_user.id).first()
-    vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=9).first()
+    vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=10).first()
     if message.text == "Запустить подбор":
         vacancy.active = True
-        vacancy.finite_state = 10
+        vacancy.finite_state = 11
         session.commit()
         session.close()
         await state.finish()
         await message.answer("Заявка добавлена в выдачу, вам придёт сообщение, как только на неё откликнутся!")
     elif message.text == "Сохранить в черновик":
-        vacancy.finite_state = 10
+        vacancy.finite_state = 11
         session.commit()
         session.close()
         await state.finish()
@@ -825,6 +830,60 @@ async def handle_callback(callback_query: types.CallbackQuery):
     callback_list = callback_query.data.split()
     if callback_list[0] == "set_lvl":
         await admin_set_level(callback_query.from_user.id, *callback_list[1:])
+    elif callback_list[0] == "set_vacancy":
+        employer_id = callback_list[1]
+        employer = session.query(Employer).filter_by(user_id=employer_id).first()
+        vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=1).first()
+        vacancy.category_id = callback_list[2]
+        vacancy.finite_state = 2
+        session.commit()
+        session.close()
+        await bot.send_message(employer_id, "Введите компанию")
+        await EmployerState.company.set()
+
+    elif callback_list[0] == "categories":
+        """коллбэк для кнопки ВЫБРАТЬ КАТЕГОРИЮ"""
+        user_id = callback_list[1]
+        categories = session.query(Category).all()
+        for category in categories:
+            category_buttons = types.InlineKeyboardMarkup()
+            recruiter = session.query(Recruiter).get(user_id)
+            category_buttons.add(
+                types.InlineKeyboardButton("ВЫБРАТЬ КАТЕГОРИЮ",
+                                           callback_data="vacancies " + f"{recruiter.id} " + f"{category.category_id}")
+            )
+            await bot.send_message(recruiter.user_id, category.name, reply_markup=category_buttons)
+
+    elif callback_list[0] == "vacancies":
+        """коллбэк для кнопки ВСЕ ВАКАНСИИ и ВЫБРАТЬ КАТЕГОРИЮ"""
+        recruiter_id = callback_list[1]
+        category = callback_list[2]
+        print(category)
+        recruiter = session.query(Recruiter).get(recruiter_id)
+        if category == "all":
+            vacancies = session.query(Vacancy).filter(
+                Vacancy.numb_level <= recruiter.level_numb,
+                Vacancy.active == True
+            ).all()
+        else:
+            vacancies = session.query(Vacancy).filter(
+                Vacancy.numb_level <= recruiter.level_numb,
+                Vacancy.active == True,
+                Vacancy.category_id == category
+            ).all()
+            category_name = session.query(Category.name).filter(Category.category_id == category).first()[0]
+            text = "Выбрана категория %s, в данной категории доступно %s заявок" % (category_name, str(len(vacancies)))
+            await bot.send_message(recruiter.user_id, text)
+        for vacancy in vacancies:
+            recruiter_buttons = types.InlineKeyboardMarkup()
+            recruiter_buttons.add(
+                types.InlineKeyboardButton("ВЗЯТЬ В РАБОТУ",
+                                           callback_data="in_work " + f"{vacancy.id} " + f"{recruiter_id}"),
+                types.InlineKeyboardButton("ПРЕДЛОЖИТЬ КАНДИДАТА",
+                                           callback_data="add_cand " + f"{vacancy.id} " + f"{recruiter_id}"),
+            )
+            await bot.send_message(recruiter.user_id, vacancy, reply_markup=recruiter_buttons)
+
     elif callback_list[0] == "in_work":
         vacancy_id = callback_list[1]
         recruiter_id = callback_list[2]

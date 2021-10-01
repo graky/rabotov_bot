@@ -8,6 +8,30 @@ from os import environ
 
 Base = declarative_base()
 
+"""
+user = "postgre"
+password = "postgre"
+db_name = "bot"
+db_host = "localhost"
+engine = create_engine(r'sqlite:///forms.db')
+"""
+user = os.environ['SQL_USER']
+password = os.environ['SQL_PASSWORD']
+db_name = os.environ['SQL_DATABASE']
+db_host = os.environ['SQL_HOST']
+engine = create_engine('postgresql+psycopg2://%s:%s@%s/%s' % (str(user), str(password), str(db_host), str(db_name)))
+
+DBSession = sessionmaker(bind=engine)
+DBSession.bind = engine
+session = DBSession()
+
+
+class Category(Base):
+    __tablename__ = "category"
+    category_id = Column(Integer, primary_key=True)
+    name = Column(String)
+    vacancy = relationship("Vacancy")
+
 
 class User(Base):
     __tablename__ = "user"
@@ -32,6 +56,7 @@ class Vacancy(Base):
     employer_id = Column(Integer, ForeignKey('employer.id'))
     employer = relationship("Employer", back_populates="vacancies")
     company = Column(String)
+    category_id = Column(Integer, ForeignKey('category.category_id'))
     website = Column(String)
     name = Column(String)
     duties = Column(String)
@@ -48,19 +73,19 @@ class Vacancy(Base):
         form = """
 Заявка на подбор персонала : {0}
 
-Компания: {1} {2}
+Категория: {9}
+
+Компания: {1}
+
+Вебсайт: {2}
 
 Наименование вакансии: {3}
 
 Обязанности: {4}
 
-Требования:
+Требования: {5}
 
-{5}
-
-Условия:
-
-{6}
+Условия: {6}
 
 Уровень вознаграждения за подбор: {7}
 
@@ -75,7 +100,9 @@ class Vacancy(Base):
             self.requirements,
             self.conditions,
             self.pay_level,
-            self.salary)
+            self.salary,
+            session.query(Category.name).filter_by(category_id=self.category_id).first()[0]
+        )
         return form
 
 
@@ -89,6 +116,7 @@ class Recruiter(Base):
     resume = relationship("Resume", back_populates="recruiter")
     finished_educ = Column(Boolean, default=False)
     inwork = relationship("InWork", back_populates="recruiter")
+
 
 class Resume(Base):
     __tablename__ = "resume"
@@ -171,19 +199,40 @@ def get_or_create(session, model, **kwargs):
         return instance
 
 
-
-
-"""user = "postgre"
-password = "postgre"
-db_name = "bot"
-db_host = "localhost"""
-user = os.environ['SQL_USER']
-password = os.environ['SQL_PASSWORD']
-db_name = os.environ['SQL_DATABASE']
-db_host = os.environ['SQL_HOST']
-engine = create_engine('postgresql+psycopg2://%s:%s@%s/%s' % (str(user), str(password), str(db_host), str(db_name)))
 Base.metadata.create_all(engine)
 Base.metadata.bind = engine
-DBSession = sessionmaker(bind=engine)
-DBSession.bind = engine
-session = DBSession()
+
+"""Создание категорий"""
+categories = ['Информационные технологии',
+              'Строительство, недвижимость',
+              'Продажи',
+              'Медицина,',
+              'Логистика',
+              'Производство',
+              'Сельское хозяйство',
+              'Закупки',
+              'Страхование',
+              'Юристы',
+              'Маркетинг',
+              'Бухгалтерия',
+              'Административный персонал',
+              'Искусство, развлечения',
+              'Высший менеджмент',
+              'Автомобильный бизнес',
+              'Безопасность',
+              'Добыча сырья',
+              'Туризм, гостиницы, рестораны',
+              'Спорт, фитнес',
+              'Индустрия красоты',
+              'Рабочий персонал',
+              'Домашний персонал',
+              'Инсталляция и сервис',
+              'Консультирование',
+              'Наука, образование',
+              'Иное']
+
+if not session.query(Category).first():
+    for category in categories:
+        session.add(Category(name=category))
+        session.commit()
+        session.close()
