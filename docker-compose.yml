@@ -35,6 +35,7 @@ services:
     image: adminer
     expose:
       - 8080
+    container_name: rabotov_bot_adminer
     networks:
       - app_network
       - server
