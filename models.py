@@ -8,21 +8,16 @@ from os import environ
 
 Base = declarative_base()
 
-"""
-user = "postgre"
-password = "postgre"
-db_name = "bot"
-db_host = "localhost"
-engine = create_engine(r'sqlite:///forms.db')
-"""
-"""user = os.environ['SQL_USER']
+user = os.environ['SQL_USER']
 password = os.environ['SQL_PASSWORD']
 db_name = os.environ['SQL_DATABASE']
-db_host = os.environ['SQL_HOST']"""
+db_host = os.environ['SQL_HOST']
+"""
 user = "postgre"
 password = "postgre"
 db_name = "bot"
-db_host = "localhost"
+db_host = "localhost"""
+
 engine = create_engine('postgresql+psycopg2://%s:%s@%s/%s' % (str(user), str(password), str(db_host), str(db_name)))
 Base.metadata.create_all(engine)
 Base.metadata.bind = engine
