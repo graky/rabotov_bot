@@ -15,12 +15,17 @@ db_name = "bot"
 db_host = "localhost"
 engine = create_engine(r'sqlite:///forms.db')
 """
-user = os.environ['SQL_USER']
+"""user = os.environ['SQL_USER']
 password = os.environ['SQL_PASSWORD']
 db_name = os.environ['SQL_DATABASE']
-db_host = os.environ['SQL_HOST']
+db_host = os.environ['SQL_HOST']"""
+user = "postgre"
+password = "postgre"
+db_name = "bot"
+db_host = "localhost"
 engine = create_engine('postgresql+psycopg2://%s:%s@%s/%s' % (str(user), str(password), str(db_host), str(db_name)))
-
+Base.metadata.create_all(engine)
+Base.metadata.bind = engine
 DBSession = sessionmaker(bind=engine)
 DBSession.bind = engine
 session = DBSession()
@@ -68,7 +73,7 @@ class Vacancy(Base):
     finite_state = Column(Integer, default=0)
     active = Column(Boolean, default=False)
     inwork = relationship("InWork", back_populates="vacancy")
-
+    candidate = relationship("Candidate", back_populates="vacancy")
     def __repr__(self):
         form = """
 Заявка на подбор персонала : {0}
@@ -116,6 +121,7 @@ class Recruiter(Base):
     resume = relationship("Resume", back_populates="recruiter")
     finished_educ = Column(Boolean, default=False)
     inwork = relationship("InWork", back_populates="recruiter")
+    candidate = relationship("Candidate", back_populates="recruiter")
 
 
 class Resume(Base):
@@ -188,6 +194,21 @@ class InWork(Base):
     vacancy = relationship("Vacancy", back_populates="inwork")
 
 
+class Candidate(Base):
+    __tablename__ = "candidate"
+    id = Column(Integer, primary_key=True)
+    recruiter_id = Column(Integer, ForeignKey('recruiter.id'))
+    recruiter = relationship("Recruiter", back_populates="candidate")
+    vacancy_id = Column(Integer, ForeignKey('vacancy.id'))
+    vacancy = relationship("Vacancy", back_populates="candidate")
+    name = Column(String)
+    interview = Column(String)
+    video = Column(String)
+    meeting = Column(String)
+    mark = Column(String)
+    resume = Column(String)
+    finite_state = Column(Integer, default=0)
+
 def get_or_create(session, model, **kwargs):
     instance = session.query(model).filter_by(**kwargs).one_or_none()
     if instance:
@@ -231,8 +252,9 @@ categories = ['Информационные технологии',
               'Наука, образование',
               'Иное']
 
-if not session.query(Category).first():
-    for category in categories:
-        session.add(Category(name=category))
-        session.commit()
-        session.close()
+def create_vacancy():
+    if not session.query(Category).first():
+        for category in categories:
+            session.add(Category(name=category))
+            session.commit()
+            session.close()

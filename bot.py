@@ -1,6 +1,7 @@
 import logging
 import os
-from models import Base, User, Employer, Vacancy, Recruiter, Resume, Question, Answer, InWork, Category
+import models
+from models import Base, User, Employer, Vacancy, Recruiter, Resume, Question, Answer, InWork, Category, Candidate
 from models import get_or_create
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -10,7 +11,7 @@ from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
 
-API_TOKEN = os.environ['TOKEN']
+API_TOKEN = "1707050052:AAEZMclXgSVhCT8ckDt3Z8NgmKHQ4ASm8fM"
 ADMIN_KEY = "d873ec68-2729-4c5d-9753-39540c011c75"
 logging.basicConfig(level=logging.INFO)
 storage = MemoryStorage()
@@ -24,16 +25,9 @@ db_name = "bot"
 db_host = "localhost"
 engine = create_engine(r'sqlite:///forms.db')
 """
-user = os.environ['SQL_USER']
-password = os.environ['SQL_PASSWORD']
-db_name = os.environ['SQL_DATABASE']
-db_host = os.environ['SQL_HOST']
-engine = create_engine('postgresql+psycopg2://%s:%s@%s/%s' % (str(user), str(password), str(db_host), str(db_name)))
 
-Base.metadata.bind = engine
-DBSession = sessionmaker(bind=engine)
-DBSession.bind = engine
-session = DBSession()
+#models.create_vacancy()
+session = models.DBSession()
 
 profile_board = types.ReplyKeyboardMarkup(resize_keyboard=True)
 buttons1 = ["РАБОТОДАТЕЛЬ", "РЕКРУТЕР"]
@@ -60,6 +54,15 @@ star_test_button = types.ReplyKeyboardMarkup(resize_keyboard=True)
 star_test_button.add("НАЧАТЬ ТЕСТ")
 finish_test_button = types.ReplyKeyboardMarkup(resize_keyboard=True)
 finish_test_button.add("ЗАВЕРШИТЬ ТЕСТ")
+not_completed_button = types.ReplyKeyboardMarkup(resize_keyboard=True)
+not_completed_button.add("Не проводилось")
+mark_of_candidate_buttons = types.ReplyKeyboardMarkup(resize_keyboard=False, row_width=1)
+mark_of_candidate_list = [
+    "Не соответствует, но очень хочет",
+    "Есть понимание и способности к обучению",
+    "Полностью соответствует: опыт и квалификация согласно заявке"
+]
+mark_of_candidate_buttons.add(*mark_of_candidate_list)
 question1 = ["Я буду искать кандидатов",
              [
                  "Telegram",
@@ -149,6 +152,15 @@ class RecruiterRegistry(StatesGroup):
     test2 = State()
     test3 = State()
     finish_test = State()
+
+
+class CandidateRegister(StatesGroup):
+    name = State()
+    interview = State()
+    video = State()
+    meeting = State()
+    mark = State()
+    resume = State()
 
 
 @dp.message_handler(commands=['admin'])
@@ -792,6 +804,74 @@ async def finish_test(message: types.Message, state: FSMContext):
         await message.answer("Нажмите ЗАВЕРШИТЬ ТЕСТ, чтобы завершить тест.")
 
 
+@dp.message_handler(state=CandidateRegister.name)
+async def set_candidate_name(message: types.Message, state: FSMContext):
+    recruiter = session.query(Recruiter).filter_by(user_id=message.from_user.id).first()
+    candidate = session.query(Candidate).filter_by(recruiter_id=recruiter.id, finite_state=0).first()
+    name = message.text
+    candidate.name = name
+    candidate.finite_state = 1
+    await message.answer("Введите итоги интервью:", reply_markup=not_completed_button)
+    await CandidateRegister.next()
+
+
+@dp.message_handler(state=CandidateRegister.interview)
+async def set_candidate_interview(message: types.Message, state: FSMContext):
+    recruiter = session.query(Recruiter).filter_by(user_id=message.from_user.id).first()
+    candidate = session.query(Candidate).filter_by(recruiter_id=recruiter.id, finite_state=1).first()
+    interview = message.text
+    if message.text == "Не проводилось":
+        candidate.interview = "None"
+    else:
+        candidate.interview = interview
+    candidate.finite_state = 2
+    await message.answer("Введите итоги видеоконференции:", reply_markup=not_completed_button)
+    await CandidateRegister.next()
+
+
+@dp.message_handler(state=CandidateRegister.video)
+async def set_candidate_video(message: types.Message, state: FSMContext):
+    recruiter = session.query(Recruiter).filter_by(user_id=message.from_user.id).first()
+    candidate = session.query(Candidate).filter_by(recruiter_id=recruiter.id, finite_state=2).first()
+    video = message.text
+    if message.text == "Не проводилось":
+        candidate.video = "None"
+    else:
+        candidate.interview = video
+    candidate.finite_state = 3
+    await message.answer("Введите итоги встречи:", reply_markup=not_completed_button)
+    await CandidateRegister.next()
+
+
+@dp.message_handler(state=CandidateRegister.meeting)
+async def set_candidate_meeting(message: types.Message, state: FSMContext):
+    recruiter = session.query(Recruiter).filter_by(user_id=message.from_user.id).first()
+    candidate = session.query(Candidate).filter_by(recruiter_id=recruiter.id, finite_state=3).first()
+    meeting = message.text
+    if message.text == "Не проводилось":
+        candidate.meeting = "None"
+    else:
+        candidate.interview = meeting
+    candidate.finite_state = 4
+    await message.answer("Оценка кандидата на соответствие предлагаемой должности", reply_markup=mark_of_candidate_buttons)
+    await CandidateRegister.next()
+
+
+@dp.message_handler(state=CandidateRegister.mark)
+async def set_candidate_mark(message: types.Message, state: FSMContext):
+    recruiter = session.query(Recruiter).filter_by(user_id=message.from_user.id).first()
+    candidate = session.query(Candidate).filter_by(recruiter_id=recruiter.id, finite_state=4).first()
+    mark = message.text
+    if message.text in mark_of_candidate_list:
+        candidate.mark = mark
+        candidate.finite_state = 5
+        session.commit()
+        session.close()
+        await CandidateRegister.next()
+
+    else:
+        await message.answer("Выберите один из предложенных вариантов")
+
 @dp.poll_answer_handler()
 async def handle_poll_answer(quiz_answer: types.PollAnswer):
     poll_id = quiz_answer.poll_id
@@ -898,19 +978,18 @@ async def handle_callback(callback_query: types.CallbackQuery):
 Итого заявок в работе: {len_vac}
 
 Используйте команду /in_work чтобы получить вакансии находящиеся у вас в работе""")
+
     elif callback_list[0] == "add_cand":
         vacancy_id = callback_list[1]
         recruiter_id = callback_list[2]
         vacancy = session.query(Vacancy).get(vacancy_id)
         recruiter = session.query(Recruiter).get(recruiter_id)
-        vacancies_in_work = session.query(InWork).filter_by(recruiter_id=recruiter.id).all()
-        len_vac = len(vacancies_in_work)
-        if vacancy and recruiter:
-            in_work = get_or_create(session, InWork, vacancy=vacancy, recruiter=recruiter)
-            await bot.send_message(recruiter.user_id, f"""Заявка №{vacancy.id} {vacancy.name} в работе. 
-Итого заявок в работе: {len_vac}
-Используйте команду /in_work чтобы получить вакансии находящиеся у вас в работе""")
-
+        session.add(Candidate(vacancy=vacancy, recruiter=recruiter))
+        session.commit()
+        await CandidateRegister.name.set()
+        await bot.send_message(recruiter.user_id, "Давайте заполним форму кандидата")
+        await bot.send_message(recruiter.user_id, "Введите имя кандидата")
+        session.close()
 
 if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True)
