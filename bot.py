@@ -1,5 +1,6 @@
 import logging
 import os
+
 import models
 from models import Base, User, Employer, Vacancy, Recruiter, Resume, Question, Answer, InWork, Category, Candidate
 from models import get_or_create
@@ -11,22 +12,15 @@ from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
 
-API_TOKEN = os.environ['TOKEN']
+# API_TOKEN = os.environ['TOKEN']
+API_TOKEN = "1750912576:AAHFYIs2DQp46NVxfMCuxvhZ2mrHbXupVi4"
 ADMIN_KEY = "d873ec68-2729-4c5d-9753-39540c011c75"
 logging.basicConfig(level=logging.INFO)
 storage = MemoryStorage()
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(bot, storage=storage)
 
-"""
-user = "postgre"
-password = "postgre"
-db_name = "bot"
-db_host = "localhost"
-engine = create_engine(r'sqlite:///forms.db')
-"""
-
-#models.create_vacancy()
+models.create_vacancy()
 session = models.DBSession()
 
 profile_board = types.ReplyKeyboardMarkup(resize_keyboard=True)
@@ -169,6 +163,53 @@ async def become_admin(message: types.Message):
     await message.answer("Введите ключ, чтобы получить возможность рассмотрения заявки")
 
 
+@dp.message_handler(commands=['help'])
+async def become_admin(message: types.Message):
+    await message.answer(
+        """Доступные команды:
+        /get_vacancies - список вакансий доступных рекрутеру
+        /in_work - список вакансий в разработке у рекрутера
+        /my_vacancies - список заявок запущенных работодателем
+    """)
+
+
+@dp.message_handler(commands=['my_vacancies'])
+async def my_vacancies(message: types.Message):
+    employer = session.query(Employer).filter_by(user_id=message.from_user.id).first()
+    employer_vacancies = session.query(Vacancy).filter_by(employer=employer, active=True).all()
+    if len(employer_vacancies) > 0:
+        for vacancy in employer_vacancies:
+            vacancy_buttons = types.InlineKeyboardMarkup()
+            vacancy_buttons.add(
+                types.InlineKeyboardButton("Удалить вакансию",
+                                           callback_data="del_vac " + f"{vacancy.id} " + f"{message.from_user.id}"),
+                types.InlineKeyboardButton("Убрать в черновики",
+                                           callback_data="draft_vac " + f"{vacancy.id} " + f"{message.from_user.id}"),
+            )
+            await message.answer(vacancy, reply_markup=vacancy_buttons)
+    else:
+        await message.answer("""Вы не еще не запустили ни одной заявки""")
+
+
+@dp.message_handler(commands=['drafts'])
+async def drafts(message: types.Message):
+    employer = session.query(Employer).filter_by(user_id=message.from_user.id).first()
+    drafts_list = session.query(Vacancy).filter(Vacancy.employer == employer, Vacancy.active == False,
+                                           Vacancy.category_id is not None).all()
+    if len(drafts_list) > 0:
+        for draft in drafts_list:
+            draft_buttons = types.InlineKeyboardMarkup()
+            draft_buttons.add(
+                types.InlineKeyboardButton("Удалить черновик",
+                                           callback_data="del_vac " + f"{draft.id} " + f"{message.from_user.id}"),
+                types.InlineKeyboardButton("Запустить подбор",
+                                           callback_data="draft_vac " + f"{draft.id} " + f"{message.from_user.id}"),
+            )
+            await message.answer(draft, reply_markup=draft_buttons)
+    else:
+        await message.answer("""Вы не еще не запустили ни одной заявки""")
+
+
 @dp.message_handler(commands=['get_vacancies'])
 async def get_vacancies(message: types.Message):
     if recruiter := session.query(Recruiter).filter_by(user_id=message.from_user.id).first():
@@ -196,14 +237,18 @@ async def in_work(message: types.Message):
             vacancies_in_work = session.query(InWork).filter(
                 InWork.recruiter_id == recruiter.id
             ).all()
-            for vacancy_in_work in vacancies_in_work:
-                vacancy = session.query(Vacancy).get(vacancy_in_work.vacancy_id)
-                recruiter_buttons = types.InlineKeyboardMarkup()
-                recruiter_buttons.add(
-                    types.InlineKeyboardButton("ПРЕДЛОЖИТЬ КАНДИДАТА",
-                                               callback_data="add_cand " + f"{vacancy.id} " + f"{recruiter.id}"),
-                )
-                await message.answer(vacancy, reply_markup=recruiter_buttons)
+            if len(vacancies_in_work) > 0:
+                for vacancy_in_work in vacancies_in_work:
+                    vacancy = session.query(Vacancy).get(vacancy_in_work.vacancy_id)
+                    recruiter_buttons = types.InlineKeyboardMarkup()
+                    recruiter_buttons.add(
+                        types.InlineKeyboardButton("ПРЕДЛОЖИТЬ КАНДИДАТА",
+                                                   callback_data="add_cand " + f"{vacancy.id} " + f"{recruiter.id}"),
+                    )
+                    await message.answer(vacancy, reply_markup=recruiter_buttons)
+            else:
+                await message.answer("""Вы еще не взяли ни одной заявки в работу, воспользуйтесь командой 
+                /get_vacancies чтобы получить список доступных заявок.""")
         else:
             await message.answer("""Вы ещё не прошли обучение. 
 Чтобы пройти обучение, воспользуйтесь командой /start далее выберите РЕКРУТЕР и следуйте инструкциям.""")
@@ -787,7 +832,7 @@ async def finish_test(message: types.Message, state: FSMContext):
         if answer.score == 3:
             await message.answer("Поздравляем, вы правильно ответили на все вопросы!")
             await message.answer("""Теперь вы можете закрывать заявки от работодателей. 
-Чтобы увидеть доступные команды воспользуйтесь командой /get_vacancies""")
+Чтобы увидеть доступные заявки воспользуйтесь командой /get_vacancies""")
             await state.finish()
             recruiter = session.query(Recruiter).filter_by(user_id=message.from_user.id).first()
             recruiter.finished_educ = True
@@ -853,7 +898,8 @@ async def set_candidate_meeting(message: types.Message, state: FSMContext):
     else:
         candidate.interview = meeting
     candidate.finite_state = 4
-    await message.answer("Оценка кандидата на соответствие предлагаемой должности", reply_markup=mark_of_candidate_buttons)
+    await message.answer("Оценка кандидата на соответствие предлагаемой должности",
+                         reply_markup=mark_of_candidate_buttons)
     await CandidateRegister.next()
 
 
@@ -871,6 +917,7 @@ async def set_candidate_mark(message: types.Message, state: FSMContext):
 
     else:
         await message.answer("Выберите один из предложенных вариантов")
+
 
 @dp.poll_answer_handler()
 async def handle_poll_answer(quiz_answer: types.PollAnswer):
@@ -918,7 +965,7 @@ async def handle_callback(callback_query: types.CallbackQuery):
         vacancy.finite_state = 2
         session.commit()
         session.close()
-        await bot.send_message(employer_id, "Введите компанию")
+        await bot.send_message(employer_id, "Введите наименование компании")
         await EmployerState.company.set()
 
     elif callback_list[0] == "categories":
@@ -938,7 +985,6 @@ async def handle_callback(callback_query: types.CallbackQuery):
         """коллбэк для кнопки ВСЕ ВАКАНСИИ и ВЫБРАТЬ КАТЕГОРИЮ"""
         recruiter_id = callback_list[1]
         category = callback_list[2]
-        print(category)
         recruiter = session.query(Recruiter).get(recruiter_id)
         if category == "all":
             vacancies = session.query(Vacancy).filter(
@@ -990,6 +1036,27 @@ async def handle_callback(callback_query: types.CallbackQuery):
         await bot.send_message(recruiter.user_id, "Давайте заполним форму кандидата")
         await bot.send_message(recruiter.user_id, "Введите имя кандидата")
         session.close()
+
+    elif callback_list[0] == "del_vac":
+        vacancy_id = callback_list[1]
+        vacancy = session.query(Vacancy).filter_by(id=vacancy_id).first()
+        session.delete(vacancy)
+        session.commit()
+        session.close()
+        await bot.send_message(callback_list[2], """Успешно удалено""")
+
+    elif callback_list[0] == "draft_vac":
+        vacancy_id = callback_list[1]
+        vacancy = session.query(Vacancy).filter_by(id=vacancy_id).first()
+        if vacancy.active:
+            vacancy.active = False
+            msg = "Заявка перемещена в черновики. Вы можете проверить свои черновики с помощью команды /drafts"
+        else:
+            vacancy.active = True
+            msg = "Заявка добавлена в выдачу. Вы можете проверить свои заявки с помощью команды /my_vacancies"
+        session.commit()
+        session.close()
+        await bot.send_message(callback_list[2], msg)
 
 if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True)
