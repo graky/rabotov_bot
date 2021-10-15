@@ -297,7 +297,8 @@ async def employer_start(message: types.Message):
 Внимательно заполните форму заявки, выберите уровень вознаграждения за подбор и мотивируйте рекрутеров заняться именно вашей заявкой.""".format(
         message.from_user.first_name,
         message.from_user.last_name,
-        len(session.query(Employer).all())
+        300
+        # len(session.query(Employer).all())
     )
     await message.answer(text, reply_markup=create_vacancy_board)
 
@@ -449,7 +450,7 @@ async def set_salary(message: types.Message, state: FSMContext):
 После модерации я покажу ее {1} рекрутерам и они предложат целевых кандидатов, если заявка их заинтересует.
 Вам останется только сделать свой выбор. А пока вы можете заняться более важными делами. До связи, {2} {3}!""".format(
             pay_level,
-            recruiter_count,
+            150,
             message.from_user.first_name,
             message.from_user.last_name,
         ))
