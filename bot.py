@@ -194,7 +194,7 @@ async def my_vacancies(message: types.Message):
 async def drafts(message: types.Message):
     employer = session.query(Employer).filter_by(user_id=message.from_user.id).first()
     drafts_list = session.query(Vacancy).filter(Vacancy.employer == employer, Vacancy.active == False,
-                                           Vacancy.category_id is not None).all()
+                                                Vacancy.category_id is not None).all()
     if len(drafts_list) > 0:
         for draft in drafts_list:
             draft_buttons = types.InlineKeyboardMarkup()
@@ -443,12 +443,13 @@ async def set_salary(message: types.Message, state: FSMContext):
         vacancy.salary = salary
         vacancy.finite_state = 10
         session.commit()
+        recruiter_count = session.query(Recruiter).filter(Recruiter.level_numb >= vacancy.numb_level).count()
         await EmployerState.next()
         await message.answer("""Вами выбран уровень {0}! 
 После модерации я покажу ее {1} рекрутерам и они предложат целевых кандидатов, если заявка их заинтересует.
 Вам останется только сделать свой выбор. А пока вы можете заняться более важными делами. До связи, {2} {3}!""".format(
             pay_level,
-            150,
+            recruiter_count,
             message.from_user.first_name,
             message.from_user.last_name,
         ))
@@ -953,6 +954,7 @@ async def handle_poll_answer(quiz_answer: types.PollAnswer):
 
 @dp.callback_query_handler(lambda callback_query: True)
 async def handle_callback(callback_query: types.CallbackQuery):
+    global vacancies
     callback_list = callback_query.data.split()
     if callback_list[0] == "set_lvl":
         await admin_set_level(callback_query.from_user.id, *callback_list[1:])
@@ -990,12 +992,21 @@ async def handle_callback(callback_query: types.CallbackQuery):
                 Vacancy.numb_level <= recruiter.level_numb,
                 Vacancy.active == True
             ).all()
+            for vacancy in vacancies:
+                in_work = session.query(InWork).filter_by(recruiter_id=recruiter_id, vacancy_id=vacancy.id).first()
+                if vacancy.inwork[0] == in_work:
+                    vacancies.remove(vacancy)
+            await bot.send_message(recruiter.user_id, "Вам доступно %s заявок" % len(vacancies))
         else:
             vacancies = session.query(Vacancy).filter(
                 Vacancy.numb_level <= recruiter.level_numb,
                 Vacancy.active == True,
                 Vacancy.category_id == category
             ).all()
+            for vacancy in vacancies:
+                in_work = session.query(InWork).filter_by(recruiter_id=recruiter_id, vacancy_id=vacancy.id).first()
+                if vacancy.inwork[0] == in_work:
+                    vacancies.remove(vacancy)
             category_name = session.query(Category.name).filter(Category.category_id == category).first()[0]
             text = "Выбрана категория %s, в данной категории доступно %s заявок" % (category_name, str(len(vacancies)))
             await bot.send_message(recruiter.user_id, text)
@@ -1014,10 +1025,10 @@ async def handle_callback(callback_query: types.CallbackQuery):
         recruiter_id = callback_list[2]
         vacancy = session.query(Vacancy).get(vacancy_id)
         recruiter = session.query(Recruiter).get(recruiter_id)
-        vacancies_in_work = session.query(InWork).filter_by(recruiter_id=recruiter.id).all()
-        len_vac = len(vacancies_in_work)
         if vacancy and recruiter:
             in_work = get_or_create(session, InWork, vacancy=vacancy, recruiter=recruiter)
+            vacancies_in_work = session.query(InWork).filter_by(recruiter_id=recruiter.id).all()
+            len_vac = len(vacancies_in_work)
             await bot.send_message(recruiter.user_id, f"""Заявка №{vacancy.id} {vacancy.name} в работе. 
 
 Итого заявок в работе: {len_vac}
@@ -1039,6 +1050,12 @@ async def handle_callback(callback_query: types.CallbackQuery):
     elif callback_list[0] == "del_vac":
         vacancy_id = callback_list[1]
         vacancy = session.query(Vacancy).filter_by(id=vacancy_id).first()
+        in_work = session.query(InWork).filter_by(vacancy_id=vacancy_id).all()
+        for work in in_work:
+            user_id = session.query(Recruiter).get(work.recruiter_id).user_id
+            await bot.send_message(user_id, """Работодатель удалил заявку \n""" + vacancy.__repr__())
+            session.delete(work)
+            session.commit()
         session.delete(vacancy)
         session.commit()
         session.close()
@@ -1056,6 +1073,7 @@ async def handle_callback(callback_query: types.CallbackQuery):
         session.commit()
         session.close()
         await bot.send_message(callback_list[2], msg)
+
 
 if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True)
