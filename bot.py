@@ -153,7 +153,6 @@ class CandidateRegister(StatesGroup):
     video = State()
     meeting = State()
     mark = State()
-    resume = State()
 
 
 @dp.message_handler(commands=['admin'])
@@ -915,8 +914,8 @@ async def set_candidate_mark(message: types.Message, state: FSMContext):
         candidate.finite_state = 5
         session.commit()
         session.close()
-        await CandidateRegister.next()
-
+        await state.finish()
+        await message.answer("Информация о кандидате передана работодателю")
     else:
         await message.answer("Выберите один из предложенных вариантов")
 
