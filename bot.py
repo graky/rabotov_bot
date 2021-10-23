@@ -2,7 +2,9 @@ import logging
 import os
 
 import models
+from time import sleep
 from models import Base, User, Employer, Vacancy, Recruiter, Resume, Question, Answer, InWork, Category, Candidate
+from aiogram.utils.exceptions import FileIsTooBig
 from models import get_or_create
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -11,6 +13,7 @@ from aiogram.dispatcher.filters import Text
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
+from aiogram.types import ContentType, InputFile
 
 API_TOKEN = os.environ['TOKEN']
 ADMIN_KEY = "d873ec68-2729-4c5d-9753-39540c011c75"
@@ -53,7 +56,7 @@ mark_of_candidate_buttons = types.ReplyKeyboardMarkup(resize_keyboard=False, row
 mark_of_candidate_list = [
     "Не соответствует, но очень хочет",
     "Есть понимание и способности к обучению",
-    "Полностью соответствует: опыт и квалификация согласно заявке"
+    "Полностью соответствует, опыт и квалификация согласно заявке"
 ]
 mark_of_candidate_buttons.add(*mark_of_candidate_list)
 question1 = ["Я буду искать кандидатов",
@@ -109,6 +112,28 @@ async def set_light_level(user_id):
     await bot.send_message(user_id, "Ваш уровень LIGHT. Давайте пройдём небольшое обучение.", reply_markup=next_button)
 
 
+async def send_candidate_to_employer(candidate_id):
+    sleep(3)
+    candidate = session.query(Candidate).get(candidate_id)
+    vacancy = candidate.vacancy
+    employer = vacancy.employer
+    await bot.send_message(employer.user.telegram_id, "На вашу вакансию откликнулись.")
+    await bot.send_message(employer.user.telegram_id, "Вакансия:"
+                                                      f"{vacancy}")
+    candidate_buttons = types.InlineKeyboardMarkup()
+    candidate_buttons.add(
+        types.InlineKeyboardButton("Отклонить",
+                                   callback_data="cand_ref " + f"{candidate_id}"),
+        types.InlineKeyboardButton("Трудоустроить",
+                                   callback_data="cand_empl " + f"{candidate_id}"),
+    )
+    await bot.send_message(employer.user.telegram_id, f"Кандидат:"
+                                                      f"{candidate}", reply_markup=candidate_buttons)
+    if candidate.resume_file:
+        file = InputFile(f"resume/{candidate.resume_file}")
+        await bot.send_message(employer.user.telegram_id, "Файл с резюме:")
+        await bot.send_document(employer.user.telegram_id, file)
+
 class AdminState(StatesGroup):
     loign = State()
 
@@ -153,6 +178,11 @@ class CandidateRegister(StatesGroup):
     video = State()
     meeting = State()
     mark = State()
+    resume = State()
+
+
+class SendContact(StatesGroup):
+    send_contact = State()
 
 
 @dp.message_handler(commands=['admin'])
@@ -552,6 +582,8 @@ async def choose_level(message: types.Message, state: FSMContext):
         await RecruiterRegistry.text1.set()
         await set_light_level(message.from_user.id)
     elif message.text == "ОТПРАВИТЬ РЕЗЮМЕ":
+        recruiter.level = "LIGHT"
+        recruiter.level_numb = 1
         session.add(Resume(recruiter=recruiter))
         session.commit()
         session.close()
@@ -779,6 +811,10 @@ async def fourth_text(message: types.Message, state: FSMContext):
 @dp.message_handler(state=RecruiterRegistry.test1)
 async def first_test(message: types.Message, state: FSMContext):
     if message.text == "НАЧАТЬ ТЕСТ":
+        answer = session.query(Answer).filter_by(user_id=message.from_user.id).first()
+        if answer:
+            session.delete(answer)
+            session.commit()
         await message.answer("""В тестах может быть несколько вариантов ответов. 
 Выберите те, которые считаете правильными, подтвердите ответ, после чего нажмите ДАЛЕЕ""")
         response = await bot.send_poll(
@@ -883,7 +919,7 @@ async def set_candidate_video(message: types.Message, state: FSMContext):
     if message.text == "Не проводилось":
         candidate.video = "None"
     else:
-        candidate.interview = video
+        candidate.video = video
     candidate.finite_state = 3
     await message.answer("Введите итоги встречи:", reply_markup=not_completed_button)
     await CandidateRegister.next()
@@ -897,7 +933,7 @@ async def set_candidate_meeting(message: types.Message, state: FSMContext):
     if message.text == "Не проводилось":
         candidate.meeting = "None"
     else:
-        candidate.interview = meeting
+        candidate.meeting = meeting
     candidate.finite_state = 4
     await message.answer("Оценка кандидата на соответствие предлагаемой должности",
                          reply_markup=mark_of_candidate_buttons)
@@ -914,10 +950,67 @@ async def set_candidate_mark(message: types.Message, state: FSMContext):
         candidate.finite_state = 5
         session.commit()
         session.close()
-        await state.finish()
-        await message.answer("Информация о кандидате передана работодателю")
+        await CandidateRegister.next()
+        await message.answer("Приложите файл с резюме или приложите ссылку на резюме или отправьте его текстом")
     else:
         await message.answer("Выберите один из предложенных вариантов")
+
+
+@dp.message_handler(state=CandidateRegister.resume, content_types=ContentType.DOCUMENT)
+async def set_candidate_resume_with_file(message: types.Message, state: FSMContext):
+    recruiter = session.query(Recruiter).filter_by(user_id=message.from_user.id).first()
+    candidate = session.query(Candidate).filter_by(recruiter_id=recruiter.id, finite_state=5).first()
+    file_id = message.document.file_id
+    resume_text = message.caption
+    try:
+        file = await bot.get_file(file_id)
+    except FileIsTooBig:
+        await message.answer("Файл слишком большой! Попробуйте другой файл или отправьте резюме текстом.")
+    else:
+        file_path = file.file_path
+        file_extension = file_path[file_path.rfind("."):]
+        if file_extension in [".txt", ".doc", ".docx", ".pdf"]:
+            file_name = file_id+file_extension
+            candidate.resume_text = resume_text
+            candidate.resume_file = file_name
+            candidate.finite_state = 6
+            session.commit()
+            await bot.download_file(file_path, f"resume/{file_name}")
+            await message.answer("Ваш кандидат поступил на рассмотрения работодателя, ожидайте ответа!")
+            await send_candidate_to_employer(candidate.id)
+            session.close()
+            await state.finish()
+        else:
+            await message.answer("Разрешены файлы с расширениями .txt, .doc, .docx, .pdf. Попробуйте другой файл или отправьте резюме ссылкой или текстом в сообщении.")
+
+
+@dp.message_handler(state=CandidateRegister.resume)
+async def set_candidate_resume_without_file(message: types.Message, state: FSMContext):
+    recruiter = session.query(Recruiter).filter_by(user_id=message.from_user.id).first()
+    candidate = session.query(Candidate).filter_by(recruiter_id=recruiter.id, finite_state=5).first()
+    resume_text = message.text
+    candidate.resume_text = resume_text
+    candidate.finite_state = 6
+    session.commit()
+    await message.answer("Ваш кандидат поступил на рассмотрения работодателя, ожидайте ответа!")
+    await send_candidate_to_employer(candidate.id)
+    session.close()
+    await state.finish()
+
+
+@dp.message_handler(state=SendContact.send_contact)
+async def set_candidate_contact(message: types.Message, state: FSMContext):
+    recruiter = session.query(Recruiter).filter_by(user_id=message.from_user.id).first()
+    candidate = session.query(Candidate).filter_by(recruiter_id=recruiter.id, finite_state=7).first()
+    candidate.finite_state = 8
+    session.commit()
+    await message.answer("Контакты переданы работодателю")
+    await bot.send_message(candidate.vacancy.employer.user_id, "Вам переданы контакты для кандидата \n"
+                                                               f"{message.text} \n\n"
+                                                               f"Кандидат"
+                                                               f"{candidate}")
+    session.close()
+    await state.finish()
 
 
 @dp.poll_answer_handler()
@@ -1048,6 +1141,7 @@ async def handle_callback(callback_query: types.CallbackQuery):
         await bot.send_message(recruiter.user_id, "Введите имя кандидата")
         session.close()
 
+
     elif callback_list[0] == "del_vac":
         vacancy_id = callback_list[1]
         vacancy = session.query(Vacancy).filter_by(id=vacancy_id).first()
@@ -1074,6 +1168,37 @@ async def handle_callback(callback_query: types.CallbackQuery):
         session.commit()
         session.close()
         await bot.send_message(callback_list[2], msg)
+
+    elif callback_list[0] == "cand_ref":
+        candidate_id = callback_list[1]
+        candidate = session.query(Candidate).get(candidate_id)
+        if candidate.taken_refused != "refused" and candidate.taken_refused != "taken":
+            candidate.taken_refused = "refused"
+            vacancy = candidate.vacancy
+            recruiter = candidate.recruiter
+            await bot.send_message(recruiter.user.telegram_id, "Ваш кандидат отклонен\n"
+                                                               f"Кандидат: \n{candidate}"
+                                                               f"Вакансия: {vacancy}")
+        else:
+            await bot.send_message(callback_query.from_user.id, "Вы уже отклонили/приняли этого кандидата")
+
+    elif callback_list[0] == "cand_empl":
+        candidate_id = callback_list[1]
+        candidate = session.query(Candidate).get(candidate_id)
+        if candidate.taken_refused != "refused" and candidate.taken_refused != "taken":
+            candidate.taken_refused = "taken"
+            candidate.finite_state = 7
+            vacancy = candidate.vacancy
+            recruiter = candidate.recruiter
+            await bot.send_message(recruiter.user.telegram_id, "Поздравляем! Ваш кандидат соответствует заявке."
+                                                               f"Кандидат: \n{candidate}"
+                                                               f"Вакансия: {vacancy}")
+            await bot.send_message(recruiter.user.telegram_id, "Отправьте контакты кандидата для работодателя")
+            session.commit()
+            session.close()
+            await SendContact.send_contact.set()
+        else:
+            await bot.send_message(callback_query.from_user.id, "Вы уже отклонили/приняли этого кандидата")
 
 
 if __name__ == '__main__':

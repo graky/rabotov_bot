@@ -117,6 +117,7 @@ class Recruiter(Base):
     finished_educ = Column(Boolean, default=False)
     inwork = relationship("InWork", back_populates="recruiter")
     candidate = relationship("Candidate", back_populates="recruiter")
+    closed_vacancies = Column(Integer, default=0)
 
 
 class Resume(Base):
@@ -201,8 +202,30 @@ class Candidate(Base):
     video = Column(String)
     meeting = Column(String)
     mark = Column(String)
-    resume = Column(String)
+    resume_text = Column(String)
+    resume_file = Column(String)
+    taken_refused = Column(String, default="")
     finite_state = Column(Integer, default=0)
+
+    def __repr__(self):
+        candidate_string = """
+Имя кандидата: {0}
+Итоги интервью: {1}
+Итоги видеоконференции: {2}
+Итоги встречи: {3}
+Оценка кандидата на соответствие предлагаемой должности: {4}
+Резюме: {5}
+        """
+        candidate_string = candidate_string.format(
+            self.name,
+            self.interview,
+            self.video,
+            self.meeting,
+            self.mark,
+            self.resume_text
+        )
+        return candidate_string
+
 
 def get_or_create(session, model, **kwargs):
     instance = session.query(model).filter_by(**kwargs).one_or_none()
