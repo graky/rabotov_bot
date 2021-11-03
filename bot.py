@@ -3,7 +3,7 @@ import os
 
 import models
 from time import sleep
-from models import Base, User, Employer, Vacancy, Recruiter, Resume, Question, Answer, InWork, Category, Candidate
+from models import Base, User, Employer, Vacancy, Recruiter, Resume, Question, Answer, InWork, Category, Candidate, Feedback
 from aiogram.utils.exceptions import FileIsTooBig
 from models import get_or_create
 from sqlalchemy import create_engine
@@ -134,14 +134,20 @@ async def send_candidate_to_employer(candidate_id):
         await bot.send_message(employer.user.telegram_id, "Файл с резюме:")
         await bot.send_document(employer.user.telegram_id, file)
 
+
 class AdminState(StatesGroup):
     loign = State()
+
+
+class FeedbackState(StatesGroup):
+    feedback = State()
 
 
 class EmployerState(StatesGroup):
     category = State()
     company = State()
     website = State()
+    city = State()
     name = State()
     duties = State()
     requirements = State()
@@ -185,20 +191,27 @@ class SendContact(StatesGroup):
     send_contact = State()
 
 
-@dp.message_handler(commands=['admin'])
+@dp.message_handler(commands=['feedback'])
 async def become_admin(message: types.Message):
+    await FeedbackState.feedback.set()
+    await message.answer("Опишите в одном сообщении вашу проблему или предложение")
+
+
+@dp.message_handler(commands=['admin'])
+async def feedback(message: types.Message):
     await AdminState.loign.set()
     await message.answer("Введите ключ, чтобы получить возможность рассмотрения заявки")
 
 
 @dp.message_handler(commands=['help'])
-async def become_admin(message: types.Message):
+async def help(message: types.Message):
     await message.answer(
         """Доступные команды:
         /get_vacancies - список вакансий доступных рекрутеру
         /in_work - список вакансий в разработке у рекрутера
         /my_vacancies - список заявок запущенных работодателем
         /drafts - список заявок сохраненных в черновики
+        /feedback - отправить отзыв об ошибке или предложение о доработке бота
     """)
 
 
@@ -300,10 +313,23 @@ async def login(message: types.Message, state: FSMContext):
     await state.finish()
 
 
+@dp.message_handler(state=FeedbackState.feedback)
+async def feedback(message: types.Message, state: FSMContext):
+    session.add(Feedback(user_id=message.from_user.id, feedback_message=message.text))
+    session.commit()
+    session.close()
+    for admin in session.query(User).filter_by(superuser=True):
+        await bot.send_message(admin.telegram_id, message.text)
+    await message.answer("Ваш отзыв будет обязательно рассмотрен")
+    await state.finish()
+
+
 @dp.message_handler(commands=['start'])
 async def send_welcome(message: types.Message):
     if not session.query(User).filter_by(telegram_id=message.from_user.id).all():
-        session.add(User(telegram_id=message.from_user.id))
+        session.add(User(telegram_id=message.from_user.id,
+                         first_name=message.from_user.first_name,
+                         last_name=message.from_user.last_name))
         session.commit()
         session.close()
     await message.answer("Чтобы посмотреть доступные команды введите /help. Выберите категорию:",
@@ -371,15 +397,27 @@ async def set_website(message: types.Message, state: FSMContext):
     session.commit()
     session.close()
     await EmployerState.next()
+    await message.answer("Введите город")
+
+
+@dp.message_handler(state=EmployerState.city)
+async def set_city(message: types.Message, state: FSMContext):
+    employer = session.query(Employer).filter_by(user_id=message.from_user.id).first()
+    vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=4).first()
+    vacancy.city = message.text
+    vacancy.finite_state = 5
+    session.commit()
+    session.close()
+    await EmployerState.next()
     await message.answer("Введите наименование вакантной должности")
 
 
 @dp.message_handler(state=EmployerState.name)
 async def set_name(message: types.Message, state: FSMContext):
     employer = session.query(Employer).filter_by(user_id=message.from_user.id).first()
-    vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=4).first()
+    vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=5).first()
     vacancy.name = message.text
-    vacancy.finite_state = 5
+    vacancy.finite_state = 6
     session.commit()
     session.close()
     await EmployerState.next()
@@ -389,9 +427,9 @@ async def set_name(message: types.Message, state: FSMContext):
 @dp.message_handler(state=EmployerState.duties)
 async def set_duties(message: types.Message, state: FSMContext):
     employer = session.query(Employer).filter_by(user_id=message.from_user.id).first()
-    vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=5).first()
+    vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=6).first()
     vacancy.duties = message.text
-    vacancy.finite_state = 6
+    vacancy.finite_state = 7
     session.commit()
     session.close()
     await EmployerState.next()
@@ -408,9 +446,9 @@ async def set_duties(message: types.Message, state: FSMContext):
 @dp.message_handler(state=EmployerState.requirements)
 async def set_requirements(message: types.Message, state: FSMContext):
     employer = session.query(Employer).filter_by(user_id=message.from_user.id).first()
-    vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=6).first()
+    vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=7).first()
     vacancy.requirements = message.text
-    vacancy.finite_state = 7
+    vacancy.finite_state = 8
     session.commit()
     session.close()
     await EmployerState.next()
@@ -427,9 +465,9 @@ async def set_requirements(message: types.Message, state: FSMContext):
 @dp.message_handler(state=EmployerState.conditions)
 async def set_conditions(message: types.Message, state: FSMContext):
     employer = session.query(Employer).filter_by(user_id=message.from_user.id).first()
-    vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=7).first()
+    vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=8).first()
     vacancy.conditions = message.text
-    vacancy.finite_state = 8
+    vacancy.finite_state = 9
     session.commit()
     session.close()
     await EmployerState.next()
@@ -447,11 +485,11 @@ PRO ( выше 10000 руб.)""", reply_markup=pay_level_keyboard)
 @dp.message_handler(state=EmployerState.level)
 async def set_level(message: types.Message, state: FSMContext):
     employer = session.query(Employer).filter_by(user_id=message.from_user.id).first()
-    vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=8).first()
+    vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=9).first()
     if message.text in pay_level_list:
         vacancy.pay_level = message.text
         vacancy.numb_level = pay_level_dict[message.text][1]
-        vacancy.finite_state = 9
+        vacancy.finite_state = 10
         session.commit()
         session.close()
         await EmployerState.next()
@@ -463,7 +501,7 @@ async def set_level(message: types.Message, state: FSMContext):
 @dp.message_handler(state=EmployerState.salary)
 async def set_salary(message: types.Message, state: FSMContext):
     employer = session.query(Employer).filter_by(user_id=message.from_user.id).first()
-    vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=9).first()
+    vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=10).first()
     try:
         salary = int(message.text)
     except ValueError:
@@ -472,7 +510,7 @@ async def set_salary(message: types.Message, state: FSMContext):
     pay_level = vacancy.pay_level
     if pay_level_dict[pay_level][0][0] <= salary <= pay_level_dict[pay_level][0][1]:
         vacancy.salary = salary
-        vacancy.finite_state = 10
+        vacancy.finite_state = 11
         session.commit()
         recruiter_count = session.query(Recruiter).filter(Recruiter.level_numb >= vacancy.numb_level).count()
         await EmployerState.next()
@@ -493,16 +531,16 @@ async def set_salary(message: types.Message, state: FSMContext):
 @dp.message_handler(state=EmployerState.activate)
 async def set_activate(message: types.Message, state: FSMContext):
     employer = session.query(Employer).filter_by(user_id=message.from_user.id).first()
-    vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=10).first()
+    vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=11).first()
     if message.text == "Запустить подбор":
         vacancy.active = True
-        vacancy.finite_state = 11
+        vacancy.finite_state = 12
         session.commit()
         session.close()
         await state.finish()
         await message.answer("Заявка добавлена в выдачу, вам придёт сообщение, как только на неё откликнутся!")
     elif message.text == "Сохранить в черновик":
-        vacancy.finite_state = 11
+        vacancy.finite_state = 12
         session.commit()
         session.close()
         await state.finish()
@@ -970,7 +1008,7 @@ async def set_candidate_resume_with_file(message: types.Message, state: FSMConte
         file_path = file.file_path
         file_extension = file_path[file_path.rfind("."):]
         if file_extension in [".txt", ".doc", ".docx", ".pdf"]:
-            file_name = file_id+file_extension
+            file_name = file_id + file_extension
             candidate.resume_text = resume_text
             candidate.resume_file = file_name
             candidate.finite_state = 6
@@ -981,7 +1019,8 @@ async def set_candidate_resume_with_file(message: types.Message, state: FSMConte
             session.close()
             await state.finish()
         else:
-            await message.answer("Разрешены файлы с расширениями .txt, .doc, .docx, .pdf. Попробуйте другой файл или отправьте резюме ссылкой или текстом в сообщении.")
+            await message.answer(
+                "Разрешены файлы с расширениями .txt, .doc, .docx, .pdf. Попробуйте другой файл или отправьте резюме ссылкой или текстом в сообщении.")
 
 
 @dp.message_handler(state=CandidateRegister.resume)
@@ -1088,7 +1127,7 @@ async def handle_callback(callback_query: types.CallbackQuery):
             ).all()
             for vacancy in vacancies:
                 in_work = session.query(InWork).filter_by(recruiter_id=recruiter_id, vacancy_id=vacancy.id).first()
-                if vacancy.inwork[0] == in_work:
+                if in_work in vacancy.inwork:
                     vacancies.remove(vacancy)
             await bot.send_message(recruiter.user_id, "Вам доступно %s заявок" % len(vacancies))
         else:
@@ -1099,7 +1138,7 @@ async def handle_callback(callback_query: types.CallbackQuery):
             ).all()
             for vacancy in vacancies:
                 in_work = session.query(InWork).filter_by(recruiter_id=recruiter_id, vacancy_id=vacancy.id).first()
-                if vacancy.inwork[0] == in_work:
+                if in_work in vacancy.inwork:
                     vacancies.remove(vacancy)
             category_name = session.query(Category.name).filter(Category.category_id == category).first()[0]
             text = "Выбрана категория %s, в данной категории доступно %s заявок" % (category_name, str(len(vacancies)))

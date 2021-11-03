@@ -38,8 +38,19 @@ class User(Base):
     telegram_id = Column(Integer, primary_key=True)
     employer = relationship("Employer", back_populates="user")
     recruiter = relationship("Recruiter", back_populates="user")
+    feedbacker = relationship("Feedback", back_populates="user")
     answer = relationship("Answer", back_populates="user")
     superuser = Column(Boolean, default=False)
+    first_name = Column(String)
+    last_name = Column(String)
+
+
+class Feedback(Base):
+    __tablename__ = "feedback"
+    id = Column(Integer, primary_key=True)
+    feedback_message = Column(String)
+    user_id = Column(Integer, ForeignKey('user.telegram_id'))
+    user = relationship("User", back_populates="feedbacker")
 
 
 class Employer(Base):
@@ -55,6 +66,7 @@ class Vacancy(Base):
     id = Column(Integer, primary_key=True)
     employer_id = Column(Integer, ForeignKey('employer.id'))
     employer = relationship("Employer", back_populates="vacancies")
+    city = Column(String)
     company = Column(String)
     category_id = Column(Integer, ForeignKey('category.category_id'))
     website = Column(String)
@@ -69,6 +81,7 @@ class Vacancy(Base):
     active = Column(Boolean, default=False)
     inwork = relationship("InWork", back_populates="vacancy")
     candidate = relationship("Candidate", back_populates="vacancy")
+
     def __repr__(self):
         form = """
 Заявка на подбор персонала : {0}
@@ -78,6 +91,8 @@ class Vacancy(Base):
 Компания: {1}
 
 Вебсайт: {2}
+
+Город: {10}
 
 Наименование вакансии: {3}
 
@@ -101,7 +116,8 @@ class Vacancy(Base):
             self.conditions,
             self.pay_level,
             self.salary,
-            session.query(Category.name).filter_by(category_id=self.category_id).first()[0]
+            session.query(Category.name).filter_by(category_id=self.category_id).first()[0],
+            self.city
         )
         return form
 
@@ -269,6 +285,7 @@ categories = ['Информационные технологии',
               'Консультирование',
               'Наука, образование',
               'Иное']
+
 
 def create_vacancy():
     if not session.query(Category).first():
