@@ -43,6 +43,7 @@ class User(Base):
     superuser = Column(Boolean, default=False)
     first_name = Column(String)
     last_name = Column(String)
+    source = Column(String, default="")
 
 
 class Feedback(Base):
