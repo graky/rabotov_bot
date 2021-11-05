@@ -56,6 +56,11 @@ mark_of_candidate_list = [
     "Полностью соответствует, опыт и квалификация согласно заявке"
 ]
 mark_of_candidate_buttons.add(*mark_of_candidate_list)
+source_buttons = types.ReplyKeyboardMarkup(resize_keyboard=False, row_width=3)
+source_list = [
+    "HH", "Superjob", "Avito", "Instagram", "HRtime", "HRspace", "WhatsApp"
+]
+source_buttons.add(*source_list)
 question1 = ["Я буду искать кандидатов",
              [
                  "Telegram",
@@ -130,6 +135,10 @@ async def send_candidate_to_employer(candidate_id):
         file = InputFile(f"resume/{candidate.resume_file}")
         await bot.send_message(employer.user.telegram_id, "Файл с резюме:")
         await bot.send_document(employer.user.telegram_id, file)
+
+
+class SetSource(StatesGroup):
+    source = State()
 
 
 class AdminState(StatesGroup):
@@ -364,6 +373,23 @@ async def send_welcome(message: types.Message):
     print(message.from_user.full_name)
     session.commit()
     session.close()
+    user = session.query(User).filter_by(telegram_id=message.from_user.id).first()
+    if not user.source:
+        await SetSource.source.set()
+        await message.answer("Пожалуйста, укажите откуда вы узнали о нашем боте. Выберите вариант из предложенных или введите свой.", reply_markup=source_buttons)
+    else:
+        await message.answer("Чтобы посмотреть доступные команды введите /help. Выберите категорию:",
+                             reply_markup=profile_board
+                             )
+
+@dp.message_handler(state=SetSource.source)
+async def set_sourse(message: types.Message, state: FSMContext):
+    user = session.query(User).filter_by(telegram_id=message.from_user.id).first()
+    user.source = message.text
+    session.commit()
+    session.close()
+    await state.finish()
+    await message.answer("Спасибо за указанную информацию!")
     await message.answer("Чтобы посмотреть доступные команды введите /help. Выберите категорию:",
                          reply_markup=profile_board
                          )

@@ -44,6 +44,7 @@ class User(Base):
     first_name = Column(String)
     last_name = Column(String)
     username = Column(String)
+    source = Column(String, default="")
 
 
 class Feedback(Base):
