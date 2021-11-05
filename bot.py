@@ -1,13 +1,10 @@
 import logging
-import os
-
 import models
+import os
 from time import sleep
-from models import Base, User, Employer, Vacancy, Recruiter, Resume, Question, Answer, InWork, Category, Candidate, Feedback
+from models import User, Employer, Vacancy, Recruiter, Resume, Question, Answer, InWork, Category, Candidate, Feedback
 from aiogram.utils.exceptions import FileIsTooBig
 from models import get_or_create
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.dispatcher.filters import Text
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
@@ -379,7 +376,7 @@ async def vacancy_start(message: types.Message):
 @dp.message_handler(state=EmployerState.company)
 async def set_company(message: types.Message, state: FSMContext):
     employer = session.query(Employer).filter_by(user_id=message.from_user.id).first()
-    vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=2).first()
+    vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=2)[-1]
     vacancy.company = message.text
     vacancy.finite_state = 3
     session.commit()
@@ -391,7 +388,7 @@ async def set_company(message: types.Message, state: FSMContext):
 @dp.message_handler(state=EmployerState.website)
 async def set_website(message: types.Message, state: FSMContext):
     employer = session.query(Employer).filter_by(user_id=message.from_user.id).first()
-    vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=3).first()
+    vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=3)[-1]
     vacancy.website = message.text
     vacancy.finite_state = 4
     session.commit()
@@ -403,7 +400,7 @@ async def set_website(message: types.Message, state: FSMContext):
 @dp.message_handler(state=EmployerState.city)
 async def set_city(message: types.Message, state: FSMContext):
     employer = session.query(Employer).filter_by(user_id=message.from_user.id).first()
-    vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=4).first()
+    vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=4)[-1]
     vacancy.city = message.text
     vacancy.finite_state = 5
     session.commit()
@@ -415,7 +412,7 @@ async def set_city(message: types.Message, state: FSMContext):
 @dp.message_handler(state=EmployerState.name)
 async def set_name(message: types.Message, state: FSMContext):
     employer = session.query(Employer).filter_by(user_id=message.from_user.id).first()
-    vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=5).first()
+    vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=5)[-1]
     vacancy.name = message.text
     vacancy.finite_state = 6
     session.commit()
@@ -427,7 +424,7 @@ async def set_name(message: types.Message, state: FSMContext):
 @dp.message_handler(state=EmployerState.duties)
 async def set_duties(message: types.Message, state: FSMContext):
     employer = session.query(Employer).filter_by(user_id=message.from_user.id).first()
-    vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=6).first()
+    vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=6)[-1]
     vacancy.duties = message.text
     vacancy.finite_state = 7
     session.commit()
@@ -446,7 +443,7 @@ async def set_duties(message: types.Message, state: FSMContext):
 @dp.message_handler(state=EmployerState.requirements)
 async def set_requirements(message: types.Message, state: FSMContext):
     employer = session.query(Employer).filter_by(user_id=message.from_user.id).first()
-    vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=7).first()
+    vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=7)[-1]
     vacancy.requirements = message.text
     vacancy.finite_state = 8
     session.commit()
@@ -465,7 +462,7 @@ async def set_requirements(message: types.Message, state: FSMContext):
 @dp.message_handler(state=EmployerState.conditions)
 async def set_conditions(message: types.Message, state: FSMContext):
     employer = session.query(Employer).filter_by(user_id=message.from_user.id).first()
-    vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=8).first()
+    vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=8)[-1]
     vacancy.conditions = message.text
     vacancy.finite_state = 9
     session.commit()
@@ -485,7 +482,7 @@ PRO ( выше 10000 руб.)""", reply_markup=pay_level_keyboard)
 @dp.message_handler(state=EmployerState.level)
 async def set_level(message: types.Message, state: FSMContext):
     employer = session.query(Employer).filter_by(user_id=message.from_user.id).first()
-    vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=9).first()
+    vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=9)[-1]
     if message.text in pay_level_list:
         vacancy.pay_level = message.text
         vacancy.numb_level = pay_level_dict[message.text][1]
@@ -501,7 +498,7 @@ async def set_level(message: types.Message, state: FSMContext):
 @dp.message_handler(state=EmployerState.salary)
 async def set_salary(message: types.Message, state: FSMContext):
     employer = session.query(Employer).filter_by(user_id=message.from_user.id).first()
-    vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=10).first()
+    vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=10)[-1]
     try:
         salary = int(message.text)
     except ValueError:
@@ -531,7 +528,7 @@ async def set_salary(message: types.Message, state: FSMContext):
 @dp.message_handler(state=EmployerState.activate)
 async def set_activate(message: types.Message, state: FSMContext):
     employer = session.query(Employer).filter_by(user_id=message.from_user.id).first()
-    vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=11).first()
+    vacancy = session.query(Vacancy).filter_by(employer=employer, finite_state=11)[-1]
     if message.text == "Запустить подбор":
         vacancy.active = True
         vacancy.finite_state = 12
