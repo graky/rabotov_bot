@@ -12,7 +12,7 @@ from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.types import ContentType, InputFile
 
-API_TOKEN = os.environ['TOKEN']
+API_TOKEN = "1750912576:AAHFYIs2DQp46NVxfMCuxvhZ2mrHbXupVi4"  # os.environ['TOKEN']
 ADMIN_KEY = "d873ec68-2729-4c5d-9753-39540c011c75"
 logging.basicConfig(level=logging.INFO)
 storage = MemoryStorage()
@@ -136,6 +136,14 @@ class AdminState(StatesGroup):
     loign = State()
 
 
+class AdminForAllUsers(StatesGroup):
+    message = State()
+
+
+class AdminWithoutVacancy(StatesGroup):
+    message = State()
+
+
 class FeedbackState(StatesGroup):
     feedback = State()
 
@@ -192,6 +200,21 @@ class SendContact(StatesGroup):
 async def become_admin(message: types.Message):
     await FeedbackState.feedback.set()
     await message.answer("Опишите в одном сообщении вашу проблему или предложение")
+
+
+@dp.message_handler(commands=['message_for_all'])
+async def for_all(message: types.Message):
+    await AdminForAllUsers.message.set()
+    await message.answer("Введите сообщение для всех пользователей бота")
+
+
+@dp.message_handler(state=AdminForAllUsers)
+async def login(message: types.Message, state: FSMContext):
+    users = session.query(User).all()
+    msg = message.text
+    for user in users:
+        await bot.send_message(user.telegram_id, msg)
+    await state.finish()
 
 
 @dp.message_handler(commands=['admin'])
@@ -323,12 +346,24 @@ async def feedback(message: types.Message, state: FSMContext):
 
 @dp.message_handler(commands=['start'])
 async def send_welcome(message: types.Message):
-    if not session.query(User).filter_by(telegram_id=message.from_user.id).all():
+    if not session.query(User).filter_by(telegram_id=message.from_user.id).first():
         session.add(User(telegram_id=message.from_user.id,
                          first_name=message.from_user.first_name,
-                         last_name=message.from_user.last_name))
+                         last_name=message.from_user.last_name,
+                         usename=message.from_user.username))
         session.commit()
         session.close()
+    else:
+        user = session.query(User).filter_by(telegram_id=message.from_user.id).first()
+        if not user.username:
+            user.username = message.from_user.username
+        if not user.first_name:
+            user.first_name = message.from_user.first_name
+        if not user.last_name:
+            user.last_name = message.from_user.last_name
+    print(message.from_user.full_name)
+    session.commit()
+    session.close()
     await message.answer("Чтобы посмотреть доступные команды введите /help. Выберите категорию:",
                          reply_markup=profile_board
                          )
@@ -344,12 +379,11 @@ async def employer_start(message: types.Message):
         session.add(Employer(user=user))
         session.commit()
         session.close()
-    text = """Здравствуйте, {0} {1}. 
+    text = """Здравствуйте, {0}. 
 Не тратьте время на поиск сотрудников. Делегируйте это мне! 
-Со мной работает {2} рекрутеров со всей страны!
+Со мной работает {1} рекрутеров со всей страны!
 Внимательно заполните форму заявки, выберите уровень вознаграждения за подбор и мотивируйте рекрутеров заняться именно вашей заявкой.""".format(
-        message.from_user.first_name,
-        message.from_user.last_name,
+        message.from_user.full_name,
         300
         # len(session.query(Employer).all())
     )
