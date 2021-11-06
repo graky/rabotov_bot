@@ -145,12 +145,12 @@ class AdminState(StatesGroup):
     loign = State()
 
 
-class AdminForAllUsers(StatesGroup):
-    message = State()
-
-
-class AdminWithoutVacancy(StatesGroup):
-    message = State()
+class AdminForUsers(StatesGroup):
+    for_all = State()
+    for_all_employers = State()
+    for_all_recruters = State()
+    for_recruters_no_educ = State()
+    for_employers_without_vacancy = State()
 
 
 class FeedbackState(StatesGroup):
@@ -213,16 +213,95 @@ async def become_admin(message: types.Message):
 
 @dp.message_handler(commands=['message_for_all'])
 async def for_all(message: types.Message):
-    await AdminForAllUsers.message.set()
-    await message.answer("Введите сообщение для всех пользователей бота")
+    if session.query(User).filter_by(telegram_id=message.from_user.id).first().superuser:
+        await AdminForUsers.for_all.set()
+        await message.answer("Введите сообщение")
+    else:
+        await message.answer("У вас недостаточно прав для данного действия")
 
 
-@dp.message_handler(state=AdminForAllUsers)
-async def login(message: types.Message, state: FSMContext):
+@dp.message_handler(state=AdminForUsers.for_all)
+async def all_message(message: types.Message, state: FSMContext):
     users = session.query(User).all()
     msg = message.text
     for user in users:
         await bot.send_message(user.telegram_id, msg)
+    await state.finish()
+
+
+@dp.message_handler(commands=['message_for_recruters'])
+async def for_all_recruters(message: types.Message):
+    if session.query(User).filter_by(telegram_id=message.from_user.id).first().superuser:
+        await AdminForUsers.for_all_recruters.set()
+        await message.answer("Введите сообщение")
+    else:
+        await message.answer("У вас недостаточно прав для данного действия")
+
+
+@dp.message_handler(state=AdminForUsers.for_all_recruters)
+async def recruters_message(message: types.Message, state: FSMContext):
+    users = session.query(Recruiter).all()
+    msg = message.text
+    for user in users:
+        await bot.send_message(user.user_id, msg)
+    await state.finish()
+
+
+@dp.message_handler(commands=['message_for_recruters_no_educ'])
+async def recruters_no_educ(message: types.Message):
+    if session.query(User).filter_by(telegram_id=message.from_user.id).first().superuser:
+        await AdminForUsers.for_recruters_no_educ.set()
+        await message.answer("Введите сообщение")
+    else:
+        await message.answer("У вас недостаточно прав для данного действия")
+
+
+@dp.message_handler(state=AdminForUsers.for_recruters_no_educ)
+async def recruters_no_educ_message(message: types.Message, state: FSMContext):
+    users = session.query(Recruiter).filter_by(finished_educ=False).all()
+    msg = message.text
+    for user in users:
+        await bot.send_message(user.user_id, msg)
+    await state.finish()
+
+
+@dp.message_handler(commands=['message_for_employers'])
+async def for_all_employers(message: types.Message):
+    if session.query(User).filter_by(telegram_id=message.from_user.id).first().superuser:
+        await AdminForUsers.for_all_employers.set()
+        await message.answer("Введите сообщение")
+    else:
+        await message.answer("У вас недостаточно прав для данного действия")
+
+
+@dp.message_handler(state=AdminForUsers.for_all_employers)
+async def employers_message(message: types.Message, state: FSMContext):
+    users = session.query(Employer).all()
+    msg = message.text
+    for user in users:
+        await bot.send_message(user.user_id, msg)
+    await state.finish()
+
+
+@dp.message_handler(commands=['message_for_employers_without_vacancy'])
+async def employers_without_vacancy(message: types.Message):
+    if session.query(User).filter_by(telegram_id=message.from_user.id).first().superuser:
+        await AdminForUsers.for_employers_without_vacancy.set()
+        await message.answer("Введите сообщение")
+    else:
+        await message.answer("У вас недостаточно прав для данного действия")
+
+
+@dp.message_handler(state=AdminForUsers.for_employers_without_vacancy)
+async def employers_without_vacancy_message(message: types.Message, state: FSMContext):
+    vacancy_list = session.query(Vacancy.employer_id).all()
+    vacancy_list = list(set(vacancy_list))
+    for i in range(len(vacancy_list)):
+        vacancy_list[i] = vacancy_list[i][0]
+    employer_list = session.query(Employer).filter(Employer.id.not_in(vacancy_list)).all()
+    msg = message.text
+    for employer in employer_list:
+        await bot.send_message(employer.user_id, msg)
     await state.finish()
 
 
@@ -242,6 +321,15 @@ async def help(message: types.Message):
         /drafts - список заявок сохраненных в черновики
         /feedback - отправить отзыв об ошибке или предложение о доработке бота
     """)
+    if session.query(User).filter_by(telegram_id=message.from_user.id).first().superuser:
+        await message.answer(
+            """Команды для администраторов бота:
+            /message_for_all - Отправить сообщение всем пользователям
+            /message_for_recruters - Отправить сообщение всем рекрутерам
+            /message_for_employers - Отправить сообщение всем работодателям
+            /message_for_recruters_no_educ - Отправить сообщение всем рекрутерам не прошедшим обучение
+            /message_for_employers_without_vacancy - Отправить сообщение всем работодателям без вакансий
+        """)
 
 
 @dp.message_handler(commands=['my_vacancies'])
@@ -362,25 +450,26 @@ async def send_welcome(message: types.Message):
                          usename=message.from_user.username))
         session.commit()
         session.close()
-    else:
-        user = session.query(User).filter_by(telegram_id=message.from_user.id).first()
-        if not user.username:
-            user.username = message.from_user.username
-        if not user.first_name:
-            user.first_name = message.from_user.first_name
-        if not user.last_name:
-            user.last_name = message.from_user.last_name
-    print(message.from_user.full_name)
-    session.commit()
-    session.close()
+
     user = session.query(User).filter_by(telegram_id=message.from_user.id).first()
+    if not user.username:
+        user.username = message.from_user.username
+    if not user.first_name:
+        user.first_name = message.from_user.first_name
+    if not user.last_name:
+        user.last_name = message.from_user.last_name
     if not user.source:
         await SetSource.source.set()
-        await message.answer("Пожалуйста, укажите откуда вы узнали о нашем боте. Выберите вариант из предложенных или введите свой.", reply_markup=source_buttons)
+        await message.answer(
+            "Пожалуйста, укажите откуда вы узнали о нашем боте. Выберите вариант из предложенных или введите свой.",
+            reply_markup=source_buttons)
     else:
         await message.answer("Чтобы посмотреть доступные команды введите /help. Выберите категорию:",
                              reply_markup=profile_board
                              )
+    session.commit()
+    session.close()
+
 
 @dp.message_handler(state=SetSource.source)
 async def set_sourse(message: types.Message, state: FSMContext):
