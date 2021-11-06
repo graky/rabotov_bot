@@ -32,10 +32,12 @@ services:
 
   adminer:
     restart: unless-stopped
-    image: adminer
+    image: adminer:latest
     expose:
       - 8080
     container_name: rabotov_bot_adminer
+    links:
+      - db:db
     networks:
       - app_network
       - server
