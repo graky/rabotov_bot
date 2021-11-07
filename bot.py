@@ -447,7 +447,7 @@ async def send_welcome(message: types.Message):
         session.add(User(telegram_id=message.from_user.id,
                          first_name=message.from_user.first_name,
                          last_name=message.from_user.last_name,
-                         usename=message.from_user.username))
+                         username=message.from_user.username))
         session.commit()
         session.close()
 
