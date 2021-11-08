@@ -40,6 +40,7 @@ class User(Base):
     recruiter = relationship("Recruiter", back_populates="user")
     feedbacker = relationship("Feedback", back_populates="user")
     answer = relationship("Answer", back_populates="user")
+    admin = relationship("MessageFromAdmin", back_populates="user")
     superuser = Column(Boolean, default=False)
     first_name = Column(String)
     last_name = Column(String)
@@ -61,6 +62,16 @@ class Employer(Base):
     user_id = Column(Integer, ForeignKey('user.telegram_id'))
     user = relationship("User", back_populates="employer")
     vacancies = relationship("Vacancy")
+
+
+
+class MessageFromAdmin(Base):
+    __tablename__ = "messages"
+    id = Column(Integer, primary_key=True)
+    msg_type = Column(String)
+    msg_text = Column(String)
+    from_user = Column(Integer, ForeignKey('user.telegram_id'))
+    user = relationship("User", back_populates="admin")
 
 
 class Vacancy(Base):

@@ -2,7 +2,18 @@ import logging
 import models
 import os
 from time import sleep
-from models import User, Employer, Vacancy, Recruiter, Resume, Question, Answer, InWork, Category, Candidate, Feedback
+from models import (User,
+                    Employer,
+                    Vacancy,
+                    Recruiter,
+                    Resume,
+                    Question,
+                    Answer,
+                    InWork,
+                    Category,
+                    Candidate,
+                    Feedback,
+                    MessageFromAdmin)
 from aiogram.utils.exceptions import FileIsTooBig
 from models import get_or_create
 from aiogram import Bot, Dispatcher, executor, types
@@ -226,6 +237,12 @@ async def all_message(message: types.Message, state: FSMContext):
     msg = message.text
     for user in users:
         await bot.send_message(user.telegram_id, msg)
+    session.add(MessageFromAdmin(msg_type="for_all",
+                                 msg_text=msg,
+                                 from_user=message.from_user.id))
+    session.commit()
+    session.close()
+    await message.answer("Успешно отправлено")
     await state.finish()
 
 
@@ -244,6 +261,12 @@ async def recruters_message(message: types.Message, state: FSMContext):
     msg = message.text
     for user in users:
         await bot.send_message(user.user_id, msg)
+    session.add(MessageFromAdmin(msg_type="for_all_recruters",
+                                 msg_text=msg,
+                                 from_user=message.from_user.id))
+    session.commit()
+    session.close()
+    await message.answer("Успешно отправлено")
     await state.finish()
 
 
@@ -262,6 +285,12 @@ async def recruters_no_educ_message(message: types.Message, state: FSMContext):
     msg = message.text
     for user in users:
         await bot.send_message(user.user_id, msg)
+    session.add(MessageFromAdmin(msg_type="for_recruters_no_educ",
+                                 msg_text=msg,
+                                 from_user=message.from_user.id))
+    session.commit()
+    session.close()
+    await message.answer("Успешно отправлено")
     await state.finish()
 
 
@@ -280,6 +309,12 @@ async def employers_message(message: types.Message, state: FSMContext):
     msg = message.text
     for user in users:
         await bot.send_message(user.user_id, msg)
+    session.add(MessageFromAdmin(msg_type="for_all_employers",
+                                 msg_text=msg,
+                                 from_user=message.from_user.id))
+    session.commit()
+    session.close()
+    await message.answer("Успешно отправлено")
     await state.finish()
 
 
@@ -302,6 +337,12 @@ async def employers_without_vacancy_message(message: types.Message, state: FSMCo
     msg = message.text
     for employer in employer_list:
         await bot.send_message(employer.user_id, msg)
+    session.add(MessageFromAdmin(msg_type="for_employers_without_vacancy",
+                                 msg_text=msg,
+                                 from_user=message.from_user.id))
+    session.commit()
+    session.close()
+    await message.answer("Успешно отправлено")
     await state.finish()
 
 
