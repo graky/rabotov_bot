@@ -7,7 +7,7 @@ import os
 from os import environ
 
 Base = declarative_base()
-
+"""
 user = os.environ['SQL_USER']
 password = os.environ['SQL_PASSWORD']
 db_name = os.environ['SQL_DATABASE']
@@ -17,7 +17,7 @@ user = "bot_admin"
 password = "bot_admin"
 db_name = "rabotov_bot"
 db_host = "localhost"
-"""
+
 engine = create_engine('postgresql+psycopg2://%s:%s@%s/%s' % (str(user), str(password), str(db_host), str(db_name)))
 Base.metadata.create_all(engine)
 Base.metadata.bind = engine
@@ -46,6 +46,7 @@ class User(Base):
     last_name = Column(String)
     username = Column(String)
     source = Column(String, default="")
+    blocked = Column(Boolean, default=False)
 
 
 class Feedback(Base):

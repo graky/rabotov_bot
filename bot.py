@@ -23,7 +23,7 @@ from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.types import ContentType, InputFile
 
-API_TOKEN = os.environ['TOKEN']
+API_TOKEN = "1750912576:AAHFYIs2DQp46NVxfMCuxvhZ2mrHbXupVi4" #os.environ['TOKEN']
 ADMIN_KEY = "d873ec68-2729-4c5d-9753-39540c011c75"
 logging.basicConfig(level=logging.INFO)
 storage = MemoryStorage()
@@ -236,7 +236,11 @@ async def all_message(message: types.Message, state: FSMContext):
     users = session.query(User).all()
     msg = message.text
     for user in users:
-        await bot.send_message(user.telegram_id, msg)
+        try:
+            await bot.send_message(user.telegram_id, msg)
+        except Exception as err:
+            user.blocked = True
+            session.commit()
     session.add(MessageFromAdmin(msg_type="for_all",
                                  msg_text=msg,
                                  from_user=message.from_user.id))
@@ -260,7 +264,11 @@ async def recruters_message(message: types.Message, state: FSMContext):
     users = session.query(Recruiter).all()
     msg = message.text
     for user in users:
-        await bot.send_message(user.user_id, msg)
+        try:
+            await bot.send_message(user.telegram_id, msg)
+        except Exception as err:
+            user.blocked = True
+            session.commit()
     session.add(MessageFromAdmin(msg_type="for_all_recruters",
                                  msg_text=msg,
                                  from_user=message.from_user.id))
@@ -284,7 +292,11 @@ async def recruters_no_educ_message(message: types.Message, state: FSMContext):
     users = session.query(Recruiter).filter_by(finished_educ=False).all()
     msg = message.text
     for user in users:
-        await bot.send_message(user.user_id, msg)
+        try:
+            await bot.send_message(user.telegram_id, msg)
+        except Exception as err:
+            user.blocked = True
+            session.commit()
     session.add(MessageFromAdmin(msg_type="for_recruters_no_educ",
                                  msg_text=msg,
                                  from_user=message.from_user.id))
@@ -308,7 +320,11 @@ async def employers_message(message: types.Message, state: FSMContext):
     users = session.query(Employer).all()
     msg = message.text
     for user in users:
-        await bot.send_message(user.user_id, msg)
+        try:
+            await bot.send_message(user.telegram_id, msg)
+        except Exception as err:
+            user.blocked = True
+            session.commit()
     session.add(MessageFromAdmin(msg_type="for_all_employers",
                                  msg_text=msg,
                                  from_user=message.from_user.id))
@@ -336,7 +352,12 @@ async def employers_without_vacancy_message(message: types.Message, state: FSMCo
     employer_list = session.query(Employer).filter(Employer.id.not_in(vacancy_list)).all()
     msg = message.text
     for employer in employer_list:
-        await bot.send_message(employer.user_id, msg)
+        try:
+            await bot.send_message(employer.user_id, msg)
+        except Exception as err:
+            user = session.query(User).filter_by(telegram_id=employer.user_id)
+            user.blocked = True
+            session.commit()
     session.add(MessageFromAdmin(msg_type="for_employers_without_vacancy",
                                  msg_text=msg,
                                  from_user=message.from_user.id))
