@@ -113,6 +113,7 @@ async def admin_set_level(admin_id, lvl, numb_lvl, recruiter_id):
         resume.reviewed = True
         recruiter.level = lvl
         recruiter.level_numb = numb_lvl
+        recruiter.finished_educ = True
         session.commit()
         session.close()
         await bot.send_message(recruiter_id, f"Поздравляем, вам назначен уровень {lvl}!")
