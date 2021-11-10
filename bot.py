@@ -223,6 +223,30 @@ async def become_admin(message: types.Message):
     await message.answer("Опишите в одном сообщении вашу проблему или предложение")
 
 
+@dp.message_handler(commands=['get_open_resume'])
+async def for_all(message: types.Message):
+    if session.query(User).filter_by(telegram_id=message.from_user.id).first().superuser:
+        resumes = session.query(Resume).filter_by(reviewed=False).all()
+
+        for resume in resumes:
+            user_id = resume.recruiter.user_id
+            admin_buttons = types.InlineKeyboardMarkup()
+            admin_buttons.add(
+                types.InlineKeyboardButton("LIGHT",
+                                           callback_data="set_lvl " + "LIGHT " + "1 " + str(user_id)),
+                types.InlineKeyboardButton("MEDIUM",
+                                           callback_data="set_lvl " + "MEDIUM " + "2 " + str(user_id)),
+                types.InlineKeyboardButton("HARD",
+                                           callback_data="set_lvl " + "HARD " + "3 " + str(user_id)),
+                types.InlineKeyboardButton("PRO", callback_data="set_lvl " + "PRO " + "4 " + str(user_id)),
+            )
+            await message.answer("Резюме от рекрутера для рассмотрения")
+            await message.answer(resume)
+            await message.answer("Назначьте уровень рекрутеру", reply_markup=admin_buttons)
+    else:
+        await message.answer("У вас недостаточно прав для данного действия")
+
+
 @dp.message_handler(commands=['message_for_all'])
 async def for_all(message: types.Message):
     if session.query(User).filter_by(telegram_id=message.from_user.id).first().superuser:
@@ -392,6 +416,7 @@ async def help(message: types.Message):
             /message_for_employers - Отправить сообщение всем работодателям
             /message_for_recruters_no_educ - Отправить сообщение всем рекрутерам не прошедшим обучение
             /message_for_employers_without_vacancy - Отправить сообщение всем работодателям без вакансий
+            /get_open_resume - не рассмотренные резюме рекрутеров
         """)
 
 
