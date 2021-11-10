@@ -65,7 +65,6 @@ class Employer(Base):
     vacancies = relationship("Vacancy")
 
 
-
 class MessageFromAdmin(Base):
     __tablename__ = "messages"
     id = Column(Integer, primary_key=True)

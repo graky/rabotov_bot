@@ -23,7 +23,7 @@ from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.types import ContentType, InputFile
 
-API_TOKEN = os.environ['TOKEN']
+API_TOKEN = "1750912576:AAHFYIs2DQp46NVxfMCuxvhZ2mrHbXupVi4" #os.environ['TOKEN']
 ADMIN_KEY = "d873ec68-2729-4c5d-9753-39540c011c75"
 logging.basicConfig(level=logging.INFO)
 storage = MemoryStorage()
@@ -1136,7 +1136,7 @@ async def finish_test(message: types.Message, state: FSMContext):
 @dp.message_handler(state=CandidateRegister.name)
 async def set_candidate_name(message: types.Message, state: FSMContext):
     recruiter = session.query(Recruiter).filter_by(user_id=message.from_user.id).first()
-    candidate = session.query(Candidate).filter_by(recruiter_id=recruiter.id, finite_state=0).first()
+    candidate = session.query(Candidate).filter_by(recruiter_id=recruiter.id, finite_state=0)[-1]
     name = message.text
     candidate.name = name
     candidate.finite_state = 1
@@ -1147,7 +1147,7 @@ async def set_candidate_name(message: types.Message, state: FSMContext):
 @dp.message_handler(state=CandidateRegister.interview)
 async def set_candidate_interview(message: types.Message, state: FSMContext):
     recruiter = session.query(Recruiter).filter_by(user_id=message.from_user.id).first()
-    candidate = session.query(Candidate).filter_by(recruiter_id=recruiter.id, finite_state=1).first()
+    candidate = session.query(Candidate).filter_by(recruiter_id=recruiter.id, finite_state=1)[-1]
     interview = message.text
     if message.text == "Не проводилось":
         candidate.interview = "None"
@@ -1161,7 +1161,7 @@ async def set_candidate_interview(message: types.Message, state: FSMContext):
 @dp.message_handler(state=CandidateRegister.video)
 async def set_candidate_video(message: types.Message, state: FSMContext):
     recruiter = session.query(Recruiter).filter_by(user_id=message.from_user.id).first()
-    candidate = session.query(Candidate).filter_by(recruiter_id=recruiter.id, finite_state=2).first()
+    candidate = session.query(Candidate).filter_by(recruiter_id=recruiter.id, finite_state=2)[-1]
     video = message.text
     if message.text == "Не проводилось":
         candidate.video = "None"
@@ -1175,7 +1175,7 @@ async def set_candidate_video(message: types.Message, state: FSMContext):
 @dp.message_handler(state=CandidateRegister.meeting)
 async def set_candidate_meeting(message: types.Message, state: FSMContext):
     recruiter = session.query(Recruiter).filter_by(user_id=message.from_user.id).first()
-    candidate = session.query(Candidate).filter_by(recruiter_id=recruiter.id, finite_state=3).first()
+    candidate = session.query(Candidate).filter_by(recruiter_id=recruiter.id, finite_state=3)[-1]
     meeting = message.text
     if message.text == "Не проводилось":
         candidate.meeting = "None"
@@ -1190,7 +1190,7 @@ async def set_candidate_meeting(message: types.Message, state: FSMContext):
 @dp.message_handler(state=CandidateRegister.mark)
 async def set_candidate_mark(message: types.Message, state: FSMContext):
     recruiter = session.query(Recruiter).filter_by(user_id=message.from_user.id).first()
-    candidate = session.query(Candidate).filter_by(recruiter_id=recruiter.id, finite_state=4).first()
+    candidate = session.query(Candidate).filter_by(recruiter_id=recruiter.id, finite_state=4)[-1]
     mark = message.text
     if message.text in mark_of_candidate_list:
         candidate.mark = mark
@@ -1206,7 +1206,7 @@ async def set_candidate_mark(message: types.Message, state: FSMContext):
 @dp.message_handler(state=CandidateRegister.resume, content_types=ContentType.DOCUMENT)
 async def set_candidate_resume_with_file(message: types.Message, state: FSMContext):
     recruiter = session.query(Recruiter).filter_by(user_id=message.from_user.id).first()
-    candidate = session.query(Candidate).filter_by(recruiter_id=recruiter.id, finite_state=5).first()
+    candidate = session.query(Candidate).filter_by(recruiter_id=recruiter.id, finite_state=5)[-1]
     file_id = message.document.file_id
     resume_text = message.caption
     try:
@@ -1235,7 +1235,7 @@ async def set_candidate_resume_with_file(message: types.Message, state: FSMConte
 @dp.message_handler(state=CandidateRegister.resume)
 async def set_candidate_resume_without_file(message: types.Message, state: FSMContext):
     recruiter = session.query(Recruiter).filter_by(user_id=message.from_user.id).first()
-    candidate = session.query(Candidate).filter_by(recruiter_id=recruiter.id, finite_state=5).first()
+    candidate = session.query(Candidate).filter_by(recruiter_id=recruiter.id, finite_state=5)[-1]
     resume_text = message.text
     candidate.resume_text = resume_text
     candidate.finite_state = 6
@@ -1249,8 +1249,8 @@ async def set_candidate_resume_without_file(message: types.Message, state: FSMCo
 @dp.message_handler(state=SendContact.send_contact)
 async def set_candidate_contact(message: types.Message, state: FSMContext):
     recruiter = session.query(Recruiter).filter_by(user_id=message.from_user.id).first()
-    candidate = session.query(Candidate).filter_by(recruiter_id=recruiter.id, finite_state=7).first()
-    candidate.finite_state = 8
+    candidate = session.query(Candidate).filter_by(recruiter_id=recruiter.id, finite_state=6).first()
+    candidate.finite_state = 7
     session.commit()
     await message.answer("Контакты переданы работодателю")
     await bot.send_message(candidate.vacancy.employer.user_id, "Вам переданы контакты для кандидата \n"
