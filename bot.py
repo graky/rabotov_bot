@@ -23,7 +23,7 @@ from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.types import ContentType, InputFile
 
-API_TOKEN = "1750912576:AAHFYIs2DQp46NVxfMCuxvhZ2mrHbXupVi4" #os.environ['TOKEN']
+API_TOKEN = os.environ['TOKEN']
 ADMIN_KEY = "d873ec68-2729-4c5d-9753-39540c011c75"
 logging.basicConfig(level=logging.INFO)
 storage = MemoryStorage()
@@ -1276,14 +1276,17 @@ async def set_candidate_resume_without_file(message: types.Message, state: FSMCo
 @dp.message_handler(state=SendContact.send_contact)
 async def set_candidate_contact(message: types.Message, state: FSMContext):
     recruiter = session.query(Recruiter).filter_by(user_id=message.from_user.id).first()
-    candidate = session.query(Candidate).filter_by(recruiter_id=recruiter.id, finite_state=6).first()
-    candidate.finite_state = 7
+    candidate = session.query(Candidate).filter_by(recruiter_id=recruiter.id, finite_state=7).first()
+    candidate.finite_state = 8
     session.commit()
     await message.answer("Контакты переданы работодателю")
     await bot.send_message(candidate.vacancy.employer.user_id, "Вам переданы контакты для кандидата \n"
                                                                f"{message.text} \n\n"
                                                                f"Кандидат"
                                                                f"{candidate}")
+    vacancy = candidate.vacancy
+    await bot.send_message(candidate.vacancy.employer.user_id, "Вакансия:\n"
+                                                               f"{vacancy}")
     session.close()
     await state.finish()
 
