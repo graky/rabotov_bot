@@ -856,6 +856,7 @@ async def choose_level(message: types.Message, state: FSMContext):
     elif message.text == "ОТПРАВИТЬ РЕЗЮМЕ":
         recruiter.level = "LIGHT"
         recruiter.level_numb = 1
+        recruiter.finished_educ = True
         session.add(Resume(recruiter=recruiter))
         session.commit()
         session.close()
@@ -958,8 +959,9 @@ async def set_refusal(message: types.Message, state: FSMContext):
     await message.answer(resume)
     await message.answer("""Я рассмотрю ваше резюме в течение 3 дней и вам будет присвоен соответствующий уровень. 
 На время рассмотрения вам будет присвоен уровень LIGHT.""")
-    await set_light_level(message.from_user.id)
-    await RecruiterRegistry.next()
+    await message.answer("""Теперь вы можете закрывать заявки от работодателей. 
+Чтобы увидеть доступные заявки воспользуйтесь командой /get_vacancies""")
+    await state.finish()
     admins = session.query(User).filter_by(superuser=True).all()
     admin_buttons = types.InlineKeyboardMarkup()
     admin_buttons.add(
