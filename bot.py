@@ -23,7 +23,7 @@ from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.types import ContentType, InputFile
 
-API_TOKEN = os.environ['TOKEN']
+API_TOKEN = "1750912576:AAHFYIs2DQp46NVxfMCuxvhZ2mrHbXupVi4" #os.environ['TOKEN']
 ADMIN_KEY = "d873ec68-2729-4c5d-9753-39540c011c75"
 logging.basicConfig(level=logging.INFO)
 storage = MemoryStorage()
@@ -290,7 +290,7 @@ async def recruters_message(message: types.Message, state: FSMContext):
     msg = message.text
     for user in users:
         try:
-            await bot.send_message(user.telegram_id, msg)
+            await bot.send_message(user.user_id, msg)
         except Exception as err:
             user.blocked = True
             session.commit()
@@ -318,7 +318,7 @@ async def recruters_no_educ_message(message: types.Message, state: FSMContext):
     msg = message.text
     for user in users:
         try:
-            await bot.send_message(user.telegram_id, msg)
+            await bot.send_message(user.user_id, msg)
         except Exception as err:
             user.blocked = True
             session.commit()
@@ -346,7 +346,7 @@ async def employers_message(message: types.Message, state: FSMContext):
     msg = message.text
     for user in users:
         try:
-            await bot.send_message(user.telegram_id, msg)
+            await bot.send_message(user.user_id, msg)
         except Exception as err:
             user.blocked = True
             session.commit()
