@@ -1471,12 +1471,21 @@ async def handle_callback(callback_query: types.CallbackQuery):
             await bot.send_message(recruiter.user.telegram_id, "Поздравляем! Ваш кандидат соответствует заявке."
                                                                f"Кандидат: \n{candidate}"
                                                                f"Вакансия: {vacancy}")
-            await bot.send_message(recruiter.user.telegram_id, "Отправьте контакты кандидата для работодателя")
+            send_contact_buttons = types.InlineKeyboardMarkup()
+            send_contact_buttons.add(
+                types.InlineKeyboardButton("ОТПРАВИТЬ КОНТАКТЫ",
+                                           callback_data="contact " + f"{vacancy.id} " + f"{recruiter.id} " + f"{candidate.id}" ),
+            )
+            await bot.send_message(recruiter.user.telegram_id, "Отправьте контакты кандидата для работодателя", reply_markup=send_contact_buttons)
             session.commit()
             session.close()
-            await SendContact.send_contact.set()
         else:
             await bot.send_message(callback_query.from_user.id, "Вы уже отклонили/приняли этого кандидата")
+
+    elif callback_list[0] == "contact":
+        await SendContact.send_contact.set()
+        await bot.send_message(callback_query.from_user.id, "Отправьте сообщение с контактами кандидата")
+
 
 
 if __name__ == '__main__':
