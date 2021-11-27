@@ -106,6 +106,14 @@ question3 = ["Для того, чтобы начать зарабатывать 
              ]
 
 
+def get_vacancy_button(vacancy):
+    vacancy_id = vacancy.id
+    vacancy_button = types.InlineKeyboardMarkup()
+    vacancy_button.add(types.InlineKeyboardButton("Показать вакансию",
+                                                callback_data="show_vacancy " + f"{vacancy_id}"))
+    return vacancy_button
+
+
 async def admin_set_level(admin_id, lvl, numb_lvl, recruiter_id):
     recruiter = session.query(Recruiter).filter_by(user_id=recruiter_id).first()
     resume = session.query(Resume).filter_by(recruiter_id=recruiter.id).first()
@@ -131,15 +139,15 @@ async def send_candidate_to_employer(candidate_id):
     candidate = session.query(Candidate).get(candidate_id)
     vacancy = candidate.vacancy
     employer = vacancy.employer
-    await bot.send_message(employer.user.telegram_id, "На вашу вакансию откликнулись.")
-    await bot.send_message(employer.user.telegram_id, "Вакансия:"
-                                                      f"{vacancy}")
+    await bot.send_message(employer.user.telegram_id, "На вашу вакансию откликнулись.", reply_markup=get_vacancy_button(vacancy))
     candidate_buttons = types.InlineKeyboardMarkup()
     candidate_buttons.add(
         types.InlineKeyboardButton("Отклонить",
                                    callback_data="cand_ref " + f"{candidate_id}"),
         types.InlineKeyboardButton("Трудоустроить",
                                    callback_data="cand_empl " + f"{candidate_id}"),
+        types.InlineKeyboardButton("Собеседовать",
+                                   callback_data="cand_inter " + f"{candidate_id}"),
     )
     await bot.send_message(employer.user.telegram_id, f"Кандидат:"
                                                       f"{candidate}", reply_markup=candidate_buttons)
@@ -215,6 +223,10 @@ class CandidateRegister(StatesGroup):
 
 class SendContact(StatesGroup):
     send_contact = State()
+
+
+class SendLink(StatesGroup):
+    send_link = State()
 
 
 @dp.message_handler(commands=['feedback'])
@@ -1276,7 +1288,8 @@ async def set_candidate_resume_without_file(message: types.Message, state: FSMCo
 @dp.message_handler(state=SendContact.send_contact)
 async def set_candidate_contact(message: types.Message, state: FSMContext):
     recruiter = session.query(Recruiter).filter_by(user_id=message.from_user.id).first()
-    candidate = session.query(Candidate).filter_by(recruiter_id=recruiter.id, finite_state=7).first()
+    candidate = session.query(Candidate).filter_by(recruiter_id=recruiter.id, finite_state=7,
+                                                   taken_refused=None).first()
     candidate.finite_state = 8
     session.commit()
     await message.answer("Контакты переданы работодателю")
@@ -1285,8 +1298,31 @@ async def set_candidate_contact(message: types.Message, state: FSMContext):
                                                                f"Кандидат"
                                                                f"{candidate}")
     vacancy = candidate.vacancy
-    await bot.send_message(candidate.vacancy.employer.user_id, "Вакансия:\n"
-                                                               f"{vacancy}")
+    in_work = session.query(InWork).filter(InWork.recruiter_id.not_in([recruiter.id]), InWork.vacancy == vacancy).all()
+    for vac in in_work:
+        rec = vac.recruiter.user_id
+        session.delete(vac)
+        session.commit()
+        await bot.send_message(rec, "Вакансия закрыта:\n", reply_markup=get_vacancy_button(vacancy))
+    vacancy.active = False
+    session.commit()
+    await bot.send_message(candidate.vacancy.employer.user_id, reply_markup=get_vacancy_button(vacancy))
+    session.close()
+    await state.finish()
+
+
+@dp.message_handler(state=SendLink.send_link)
+async def set_candidate_link(message: types.Message, state: FSMContext):
+    recruiter = session.query(Recruiter).filter_by(user_id=message.from_user.id).first()
+    candidate = session.query(Candidate).filter_by(recruiter_id=recruiter.id, finite_state=6).first()
+    await bot.send_message(candidate.vacancy.employer.user_id,
+                           "Вам передана ссылка на конференцию для собеседования кандидата \n"
+                           f"{message.text} \n\n"
+                           f"Кандидат"
+                           f"{candidate}")
+    vacancy = candidate.vacancy
+    await bot.send_message(candidate.vacancy.employer.user_id, reply_markup=get_vacancy_button(vacancy))
+    await message.answer("Ссылка отправлена работодателю")
     session.close()
     await state.finish()
 
@@ -1455,8 +1491,25 @@ async def handle_callback(callback_query: types.CallbackQuery):
             vacancy = candidate.vacancy
             recruiter = candidate.recruiter
             await bot.send_message(recruiter.user.telegram_id, "Ваш кандидат отклонен\n"
-                                                               f"Кандидат: \n{candidate}"
-                                                               f"Вакансия: {vacancy}")
+                                                               f"Кандидат: \n{candidate}",
+                                   reply_markup=get_vacancy_button(vacancy))
+        else:
+            await bot.send_message(callback_query.from_user.id, "Вы уже отклонили/приняли этого кандидата")
+
+    elif callback_list[0] == "cand_inter":
+        candidate_id = callback_list[1]
+        candidate = session.query(Candidate).get(candidate_id)
+        if candidate.taken_refused != "refused" and candidate.taken_refused != "taken":
+            send_interview_buttons = types.InlineKeyboardMarkup()
+            send_interview_buttons.add(
+                types.InlineKeyboardButton("Аудио",
+                                           callback_data="interview_audio " + f"{candidate_id}"),
+                types.InlineKeyboardButton("Видео",
+                                           callback_data="interview_video " + f"{candidate_id}"),
+            )
+            await bot.send_message(callback_query.from_user.id, "Выберите тип собеседования",
+                                   reply_markup=send_interview_buttons)
+            session.close()
         else:
             await bot.send_message(callback_query.from_user.id, "Вы уже отклонили/приняли этого кандидата")
 
@@ -1469,14 +1522,15 @@ async def handle_callback(callback_query: types.CallbackQuery):
             vacancy = candidate.vacancy
             recruiter = candidate.recruiter
             await bot.send_message(recruiter.user.telegram_id, "Поздравляем! Ваш кандидат соответствует заявке."
-                                                               f"Кандидат: \n{candidate}"
-                                                               f"Вакансия: {vacancy}")
+                                                               f"Кандидат: \n{candidate}",
+                                   reply_markup=get_vacancy_button(vacancy))
             send_contact_buttons = types.InlineKeyboardMarkup()
             send_contact_buttons.add(
                 types.InlineKeyboardButton("ОТПРАВИТЬ КОНТАКТЫ",
-                                           callback_data="contact " + f"{vacancy.id} " + f"{recruiter.id} " + f"{candidate.id}" ),
+                                           callback_data="contact " + f"{vacancy.id} " + f"{recruiter.id} " + f"{candidate.id}"),
             )
-            await bot.send_message(recruiter.user.telegram_id, "Отправьте контакты кандидата для работодателя", reply_markup=send_contact_buttons)
+            await bot.send_message(recruiter.user.telegram_id, "Отправьте контакты кандидата для работодателя",
+                                   reply_markup=send_contact_buttons)
             session.commit()
             session.close()
         else:
@@ -1486,7 +1540,34 @@ async def handle_callback(callback_query: types.CallbackQuery):
         await SendContact.send_contact.set()
         await bot.send_message(callback_query.from_user.id, "Отправьте сообщение с контактами кандидата")
 
+    elif "interview" in callback_list[0]:
+        candidate_id = callback_list[1]
+        candidate = session.query(Candidate).get(candidate_id)
+        vacancy = candidate.vacancy
+        recruiter = candidate.recruiter
+        interview_type = "аудио"
+        if "video" in callback_list[0]:
+            interview_type = "видео"
+        send_link_buttons = get_vacancy_button(vacancy)
+        send_link_buttons.add(
+            types.InlineKeyboardButton("ОТПРАВИТЬ ССЫЛКУ",
+                                       callback_data="inter_link " + f"{candidate.id}"),
+        )
+        await bot.send_message(recruiter.user.telegram_id,
+                               f"Работодатель хочет провести {interview_type} собеседование с кандидатом. \n"
+                               f"Кандидат: \n{candidate}",
+                               reply_markup=send_link_buttons)
+        session.close()
 
+    elif callback_list[0] == "inter_link":
+        await SendLink.send_link.set()
+        await bot.send_message(callback_query.from_user.id, "Отправьте сообщение с ссылкой на конференцию")
+
+    elif callback_list[0] == "show_vacancy":
+        vacancy_id = callback_list[1]
+        vacancy = session.query(Vacancy).get(vacancy_id)
+        await bot.send_message(callback_query.from_user.id, "Вакансия: \n"
+                               f"{vacancy}")
 
 if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True)
